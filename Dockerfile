@@ -11,6 +11,12 @@ COPY mockup/ /usr/share/nginx/html/
 RUN printf '{"version":"%s","sha":"%s","date":"%s"}\n' "$BUILD_VERSION" "$BUILD_SHA" "$BUILD_DATE" \
       > /usr/share/nginx/html/version.json
 
+# cache busting: every build gets new script URLs (app.js?v=<sha>), so no browser or CDN
+# cache (e.g. Cloudflare rewriting Cache-Control to max-age) can mix old scripts with new html.
+# Applies to the root page and to every frozen version page (versions/<v>/index.html)
+RUN find /usr/share/nginx/html -name index.html -exec \
+      sed -i -E "s#src=\"([^\"?:]+\.js)\"#src=\"\1?v=${BUILD_SHA}\"#g" {} +
+
 LABEL org.opencontainers.image.version="$BUILD_VERSION" \
       org.opencontainers.image.revision="$BUILD_SHA" \
       org.opencontainers.image.source="https://github.com/jstPlink/crafting"

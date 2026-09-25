@@ -1,13 +1,18 @@
 #!/usr/bin/env python3
 """Freeze the working copy (mockup/) as a switchable version.
 
-    python scripts/snapshot.py 0.4.1 --notes "Readability pass"
+    python scripts/snapshot.py 0.4.3 --notes "Readability pass"
     python scripts/snapshot.py 0.4.0 --save-key crafting.save.v1   # legacy save key
 
+Freezing an OLDER commit that was never snapshotted (retroactively):
+    git archive <commit> mockup | tar -x -C <tmpdir>
+    python scripts/snapshot.py 0.4.2 --src <tmpdir>/mockup --save-key crafting.save.v1
+
 What it does
-  1. checks that APP_VERSION in mockup/app.js matches the version you pass
+  1. checks that APP_VERSION in mockup/app.js (or --src) matches the version you pass
   2. copies index.html, app.js and ship3d.js to mockup/versions/<version>/
-     (vendor/, versions.js and switcher.js stay shared at the root; paths are rewritten)
+     (vendor/, versions.js and switcher.js stay shared at the root; paths are rewritten,
+     and the versions.js / switcher.js tags are added if the page does not have them yet)
   3. adds / replaces the entry in mockup/versions.js (the manifest the in-app menu reads)
 
 Run it AFTER the last change of a release. Snapshots are frozen: never edit them by hand.
@@ -43,11 +48,13 @@ def main():
     ap.add_argument('--notes', default='', help='one line shown in the version menu')
     ap.add_argument('--save-key', help='localStorage key of this version (default crafting.save.<version>)')
     ap.add_argument('--force', action='store_true', help='overwrite an existing snapshot')
+    ap.add_argument('--src', help='folder holding index.html/app.js/ship3d.js to freeze (default: mockup/)')
     a = ap.parse_args()
 
     if not re.fullmatch(r'\d+\.\d+\.\d+', a.version):
         sys.exit('snapshot: version must look like 1.2.3')
-    app = (ROOT / 'app.js').read_bytes()
+    src = pathlib.Path(a.src).resolve() if a.src else ROOT
+    app = (src / 'app.js').read_bytes()
     m = re.search(rb"const APP_VERSION = '([^']+)'", app)
     if not m or m.group(1).decode() != a.version:
         sys.exit(f"snapshot: APP_VERSION in app.js is {m.group(1).decode() if m else '?'}, not {a.version}")
@@ -60,10 +67,16 @@ def main():
     dest.mkdir(parents=True)
 
     for name in FILES:
-        data = (ROOT / name).read_bytes()
+        data = (src / name).read_bytes()
         if name == 'index.html':
-            for lib in ('vendor/three.min.js', 'vendor/GLTFLoader.js', 'versions.js', 'switcher.js'):
+            for lib in ('vendor/three.min.js', 'vendor/GLTFLoader.js'):
                 data = sub_once(data, f'src="{lib}"'.encode(), f'src="../../{lib}"'.encode(), lib)
+            for lib in ('versions.js', 'switcher.js'):
+                tag = f'src="{lib}"'.encode()
+                if tag in data:
+                    data = sub_once(data, tag, f'src="../../{lib}"'.encode(), lib)
+                else:   # page written before the menu existed
+                    data = sub_once(data, b'</body>', f'<script src="../../{lib}"></script>\n</body>'.encode(), '</body>')
         if name == 'app.js':   # build label: show the deployment's build info
             data = sub_once(data, b"fetch('version.json'", b"fetch('../../version.json'", 'version.json fetch')
         (dest / name).write_bytes(data)

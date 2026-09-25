@@ -89,8 +89,7 @@ button{font:inherit;color:inherit;background:none;border:0;cursor:pointer}
 .slot:hover{background:linear-gradient(#3d4148,#30343a)}
 .slot .ic{width:38px;height:100%;display:grid;place-items:center;color:#fff}
 .slot .ic svg{width:22px;height:22px}
-/* module type is told by the icon only: colours are reserved for socket size, rarity and states */
-.slot.pri .ic,.slot.sec .ic,.slot.eng .ic{background:var(--ic-bg)}
+.slot.pri .ic{background:var(--pri)}.slot.sec .ic{background:var(--sec)}.slot.eng .ic{background:var(--eng)}
 .slot .nm{flex:1;padding:0 12px;font-size:20px;font-weight:600;letter-spacing:.02em;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .slot .pwr{display:flex;align-items:center;gap:3px;font-size:16px;color:var(--dim);margin-right:8px}
 .slot .pwr svg{width:12px;height:12px}
@@ -166,10 +165,11 @@ button{font:inherit;color:inherit;background:none;border:0;cursor:pointer}
 .cat i{font-style:normal;margin-left:4px;color:#69727a}
 .cat.act{color:#fff;background:#2b2f35}
 .cat.act{border-color:var(--accent)}
+.cat.act.pri{border-color:var(--pri)}.cat.act.sec{border-color:var(--sec)}.cat.act.eng{border-color:var(--eng)}
 .cg-list{flex:1;overflow-y:auto;padding:0 14px 10px;scrollbar-width:thin;scrollbar-color:#3a3f46 transparent}
 .cg-row{display:flex;align-items:center;gap:12px;height:66px;padding:0 12px 0 0;margin-bottom:5px;background:linear-gradient(#2f3237,#282b30);cursor:pointer;border:1px solid transparent;position:relative}
 .cg-row .ic{width:46px;align-self:stretch;display:grid;place-items:center;color:#fff}
-.cg-row.pri .ic,.cg-row.sec .ic,.cg-row.eng .ic{background:var(--ic-bg)}
+.cg-row.pri .ic{background:var(--pri)}.cg-row.sec .ic{background:var(--sec)}.cg-row.eng .ic{background:var(--eng)}
 .cg-row .ic svg{width:24px;height:24px}
 .cg-row .mid{flex:1;min-width:0}
 .cg-row .nm{font-size:20px;font-weight:700;letter-spacing:.02em;display:flex;gap:8px;align-items:baseline}
@@ -178,7 +178,10 @@ button{font:inherit;color:inherit;background:none;border:0;cursor:pointer}
 .chip{display:inline-flex;align-items:center;gap:4px}
 .chip svg{width:12px;height:12px}
 .chip em{font-style:normal;font-weight:700;font-size:13px}
-.cg-row .act{flex:none;width:118px;justify-content:flex-end;font-size:14px;font-weight:700;letter-spacing:.1em;color:var(--accent-2);display:flex;align-items:center;gap:6px;white-space:nowrap}
+.cg-row .nm{white-space:nowrap;min-width:0}
+.cg-row .nmt{overflow:hidden;text-overflow:ellipsis;min-width:0}
+.cg-row .nm small{flex:none}
+.cg-row .act{flex:none;width:104px;justify-content:flex-end;font-size:14px;font-weight:700;letter-spacing:.1em;color:var(--accent-2);display:flex;align-items:center;gap:6px;white-space:nowrap}
 .cg-row.nopow .act{color:var(--bad)}
 .cg-row.nopow .nm{color:#c9aaaa}
 .cg-row.hov,.cg-row:hover{background:linear-gradient(#3b3f45,#30343a)}
@@ -374,78 +377,6 @@ button{font:inherit;color:inherit;background:none;border:0;cursor:pointer}
 #leave-ov{position:absolute;inset:0;background:#000;display:none;place-items:center;font-size:40px;letter-spacing:.3em;color:var(--accent-2);z-index:50;cursor:pointer}
 #leave-ov.show{display:grid}
 #leave-ov small{display:block;font-size:16px;color:var(--dim);letter-spacing:.14em;text-align:center;margin-top:14px}
-
-/* ---------- 0.4.1 · experiment "keyStats": key stat on every row, delta, BEST, sorting ---------- */
-.slot .ks{display:flex;align-items:center;justify-content:flex-end;gap:4px;min-width:44px;margin-right:6px;font-size:16px;font-weight:700;color:#dfe5ea}
-.slot .ks svg{width:12px;height:12px;color:var(--dim)}
-.cg-row.two{height:58px}
-.cg-row.two .nm{display:block;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
-.cg-row .sub{display:flex;align-items:center;gap:10px;margin-top:2px;font-size:16px;font-weight:600;color:var(--dim);white-space:nowrap}
-.cg-row .sub b{font-weight:700;color:var(--txt)}
-.cg-row .sub .q{color:#c3cad1}
-.dlt{font-weight:700}
-.dlt.up{color:var(--good)}.dlt.dn{color:var(--bad)}.dlt.wn{color:var(--warn)}.dlt.nt{color:var(--dim)}
-.best{font-size:13px;font-weight:700;letter-spacing:.12em;padding:0 7px;border:1px solid var(--accent);color:var(--accent-2)}
-.sortchip{font-size:15px;font-weight:600;letter-spacing:.06em;color:#cfd6dc;border:1px dashed #4b5158;padding:2px 10px}
-.sortchip:hover{color:#fff;border-color:var(--accent-2)}
-.cg-empty .cg-sub{font-size:15px}
-
-/* ---------- 0.4.1 · experiment "overview": free-socket summary ---------- */
-.valrow.sum{align-items:flex-end;gap:14px}
-.valrow.sum .vcol{display:flex;flex-direction:column;gap:4px;min-width:0}
-.valrow.sum .vcol:last-child{flex:1}
-.valrow.sum .val b{font-size:32px}
-.valrow.sum .val svg{width:20px;height:20px}
-.valrow.sum .dslot{width:58px;justify-content:flex-start}
-.valrow.sum .sks{display:flex;gap:4px;align-items:center;height:32px}
-.valrow.sum .sk{flex:1;display:flex;align-items:center;gap:4px;line-height:1;white-space:nowrap}
-.valrow.sum .sk b{font-size:24px}
-.valrow.sum .sk i{font-style:normal;font-size:16px;font-weight:600;color:var(--dim)}
-.valrow.sum .sk .d{font-size:14px;font-weight:700}
-#stage.ux-ov .st{padding-top:4px;padding-bottom:4px}
-#stage.ux-ov .cats{padding:2px 14px 6px}
-#stage.ux-ov .cg .target{padding:6px 18px 2px}
-
-/* ---------- 0.4.1 · experiment "bigText": larger type, more contrast on dim text ---------- */
-#stage.ux-big{--dim:#9aa3ab}
-#stage.ux-big #build{font-size:15px;color:#8a939b}
-#stage.ux-big .gp.pill{font-size:14px}
-#stage.ux-big .sec-title span{font-size:16px}
-#stage.ux-big .slot.pv-add .nm::after{font-size:16px}
-#stage.ux-big .head small{font-size:16px}
-#stage.ux-big .pw-row .lbl{font-size:16px}
-#stage.ux-big .st .sl{font-size:15px;letter-spacing:.05em}
-#stage.ux-big .st .sl i{font-size:14px;color:#8a939b}
-#stage.ux-big .st .sv small{font-size:16px}
-#stage.ux-big .st .sd{font-size:16px}
-#stage.ux-big .hstat{font-size:15px}
-#stage.ux-big .tip .tipbox{font-size:16px}
-#stage.ux-big .tipnum{font-size:15px}
-#stage.ux-big .valrow .rl{font-size:16px}
-#stage.ux-big .cg .target{font-size:16px}
-#stage.ux-big .cat{font-size:15px;letter-spacing:.02em}
-#stage.ux-big .cat i{color:#8a939b}
-#stage.ux-big .cg-row .act{font-size:15px;letter-spacing:.06em}
-#stage.ux-big .cg-empty{color:#8a939b}
-#stage.ux-big .cg-empty .cg-sub{font-size:16px}
-#stage.ux-big .slot.empty .ic,#stage.ux-big .slot.empty .nm,#stage.ux-big .slot.free .nm{color:#8a939b}
-#stage.ux-big .slot.free .nm{font-size:18px}
-#stage.ux-big .tag3d small{font-size:15px}
-#stage.ux-big .vhint{font-size:16px;color:#8a939b}
-#stage.ux-big #card .ch .fam,#stage.ux-big #card .ch .tg{font-size:15px}
-#stage.ux-big #card th{font-size:15px}
-#stage.ux-big #card .emptyc,#stage.ux-big #card small.tot,#stage.ux-big .kidchip i{color:#8a939b}
-#stage.ux-big .retline{font-size:16px}
-#stage.ux-big .bunl small{font-size:13px}
-#stage.ux-big .pk-head small{font-size:16px}
-#stage.ux-big .bc-head small,#stage.ux-big .bc-stats span{font-size:15px}
-#stage.ux-big .bc-use{font-size:14px}
-#stage.ux-big .hint.off{color:#6f7982}
-#stage.ux-big .inputpill{font-size:14px;color:#8a939b}
-#stage.ux-big .dbgbtn{font-size:14px}
-#stage.ux-big .sortchip{font-size:16px}
-#stage.ux-big .cg-row .sub{font-size:17px}
-#stage.ux-big .best{font-size:14px}
 </style>
 </head>
 <body>

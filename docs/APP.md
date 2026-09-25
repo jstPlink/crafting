@@ -44,9 +44,10 @@ Ordine di caricamento in `index.html`: `three.min.js` → `GLTFLoader.js` → `a
 - Dev: preview `mockup` (porta 6480), oppure aprire `mockup/index.html` da `file://`.
 - Debug URL: `?model=<url.glb>` carica un body personalizzato.
 - Docker: `docker compose up -d --build` → `http://localhost:6480`. In produzione l'immagine viene da `ghcr.io/jstplink/crafting:latest`.
-- `version.json` è generato dal Dockerfile (versione CI `1.0.<run>`, sha, data). In locale non esiste: la UI mostra `v<APP_VERSION> · LOCAL`.
-- **Versione app**: `APP_VERSION` in `app.js` (oggi `0.4.1`) va incrementata a ogni versione e la versione va congelata con `scripts/snapshot.py` (§3b).
+- `version.json` è generato dal Dockerfile (versione CI `1.0.<run>`, sha, data). In locale non esiste. La scritta build mostra solo `v<APP_VERSION>`; i dettagli CI (build, sha, data) sono nel tooltip (`title`) quando `version.json` esiste. Cliccando la scritta si apre il menu versioni (§3b).
+- **Versione app**: `APP_VERSION` in `app.js` (oggi `0.4.3`) va incrementata a ogni versione e la versione va congelata con `scripts/snapshot.py` (§3b).
 - nginx serve html/js con `no-cache` e `vendor/` con cache di 7 giorni.
+- **Cache-busting** (Dockerfile): a ogni build ogni `src="….js"` locale di **ogni** `index.html` (radice e `versions/<v>/`) riceve `?v=<sha>`, così né browser né CDN mischiano script vecchi con html nuovo. Gli script nuovi che si aggiungono a un `index.html` sono coperti in automatico (purché locali e senza `?`).
 
 ## 3b. Versioning: provare versioni diverse dall'app
 
@@ -58,7 +59,7 @@ Obiettivo: poter aprire **qualsiasi versione passata** dell'app e confrontarne i
 - **Salvataggi separati per versione**: chiave `localStorage` = `saveKey` dell'entry nel manifest (default `crafting.save.<versione>`; la 0.4.0 usa quella storica `crafting.save.v1`). Il pulsante **COPY BUILD HERE** copia le build salvate di un'altra versione in quella corrente (chiede conferma, poi ricarica).
 - **Esperimenti (flag)**: una versione può esporre `window.craftingExperiments = { items(), toggle(id) }`; il menu mostra ogni voce come interruttore ON/OFF. Serve a combinare/confrontare singole funzioni **dentro la stessa versione** (gli snapshot servono invece a confrontare versioni intere).
 - Le versioni congelate non hanno gli esperimenti nuovi (sono codice vecchio); hanno solo il menu, aggiunto dallo script.
-- Se una versione non ha ancora un salvataggio proprio, `loadLocal` parte da quello storico `crafting.save.v1` (la 0.4.1 ha ereditato così la build della 0.4.0); da lì in poi scrive solo sulla propria chiave.
+- Se una versione non ha ancora un salvataggio proprio, `loadLocal` parte da quello storico `crafting.save.v1` (la 0.4.3 ha ereditato così la build della 0.4.2); da lì in poi scrive solo sulla propria chiave.
 
 ### Procedura di rilascio (a ogni versione nuova)
 1. Finire le modifiche in `mockup/` e incrementare `APP_VERSION` in `mockup/app.js`.
@@ -72,12 +73,14 @@ Obiettivo: poter aprire **qualsiasi versione passata** dell'app e confrontarne i
 | Versione | Note |
 |---|---|
 | 0.4.0 | Baseline (tag `v0.4.0` = commit `685adf4`): Body/Arms, parametri moduli, slot cargo, view mode. Salvataggio `crafting.save.v1` |
-| 0.4.1 | Leggibilità: testo più grande e più contrasto, stat chiave su ogni riga + delta + BEST + ordinamento cargo, overview più chiara. Ogni intervento è un esperimento ON/OFF (§3c). Salvataggio `crafting.save.0.4.1` |
+| 0.4.1 | Solo cache-busting nel Dockerfile (commit `ccb8dc9`). Nessuno snapshot: UI identica alla 0.4.0 |
+| 0.4.2 | Colori per tipo di modulo di nuovo attivi (rosso primary, giallo secondary, blu engine), scritta build ridotta a `v<versione>`. Snapshot **retroattivo** dal commit `da61880`. Salvataggio `crafting.save.v1` |
+| 0.4.3 | Leggibilità: testo più grande e più contrasto, stat chiave su ogni riga + delta + BEST + ordinamento cargo, overview più chiara. Ogni intervento è un esperimento ON/OFF (§3c). Salvataggio `crafting.save.0.4.3` |
 
-## 3c. Esperimenti (flag) della 0.4.1
+## 3c. Esperimenti (flag) della 0.4.3
 
 Tre interruttori nel menu versioni (in alto a destra), tutti ON di default, salvati in `localStorage` (`crafting.flags.<versione>`).
-Definiti in `app.js`: `FLAGS`, `flag(id)`, `loadFlags`, `applyFlags`, `window.craftingExperiments`. Con **tutti spenti l'app è uguale alla 0.4.0**.
+Definiti in `app.js`: `FLAGS`, `flag(id)`, `loadFlags`, `applyFlags`, `window.craftingExperiments`. Con **tutti spenti l'app è uguale alla 0.4.2**.
 
 | Flag | Cosa cambia | Dove |
 |---|---|---|
@@ -239,7 +242,7 @@ Suggerimenti dei tasti **che cambiano col contesto** (picker / focus body / focu
 `glyph(n)` restituisce il glifo gamepad o il tasto tastiera secondo `dev()`.
 
 ### 7.7 Debug / mockup-only
-Il pulsante viola **DEBUG · RANDOM BUILD** (`#dbgRandom` → `randomBuild()`) monta una build casuale ma legale (fino a 20 tentativi). La pill INPUT e la scritta build `#build` sono elementi del mockup, non del gioco.
+Il pulsante viola **DEBUG · RANDOM BUILD** (`#dbgRandom` → `randomBuild()`) monta una build casuale ma legale (fino a 20 tentativi). La pill INPUT e la scritta build `#build` (cliccabile: menu versioni/esperimenti, `switcher.js`) sono elementi del mockup, non del gioco.
 
 ## 8. Vista 3D (`ship3d.js`)
 
@@ -292,7 +295,7 @@ Tasto `V` / View del pad / pulsante "EXIT VIEW MODE". `#shipbox` occupa tutto lo
 `loadLocal` → `loadFlags` → `applyFlags` → camera `homeRot()` → scritta build → `renderTop` → `initShip` → `renderAll` → avvio `pollPad` → fetch di `version.json` per completare la scritta build.
 
 ## 12. Convenzioni CSS/UI da rispettare
-- Colore dei **tipi di modulo**: solo per **icona**; i colori sono riservati a **taglia socket, rarità e stati** (commento in `index.html`).
+- Colore dei **tipi di modulo** (dalla 0.4.2): primary rosso `--pri`, secondary giallo `--sec`, engine blu `--eng`, su icone delle righe (`.slot`, `.cg-row`), bordo della tab attiva e modelli 3D (`KIND_COL` in `ship3d.js`). La 0.4.0/0.4.1 li teneva solo per icona: ora **taglia socket** (forma+colore), **rarità** (tinta riga) e **tipo modulo** convivono, quindi non aggiungere altri significati al colore.
 - Rarità: solo colore (tinta riga `--rc`, striscia sull'icona, `rdot`).
 - I delta nelle statistiche **non devono cambiare il layout**: usare slot a larghezza fissa (`dslot`) o badge assoluti (`.sd`), e `visibility:hidden` (`.sd.off`).
 - **Tipografia** (regola dell'esperimento `bigText`): etichette MAIUSCOLE ≥ 15px, testo normale ≥ 16px, niente sotto i 14px per ciò che si legge. Testi secondari: `--dim`; i grigi ancora più spenti (`#5c…`, `#6b…`) hanno contrasto < 4.5:1 e vanno evitati per testo nuovo (usare `#8a939b` o più chiaro).
