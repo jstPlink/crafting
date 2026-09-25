@@ -28,7 +28,7 @@ const SIZE = {
 const SIZE_ORDER = [1,2,3];   // small sockets first, large at the bottom
 
 // app version: bumped on every commit (the CI build number is shown next to it)
-const APP_VERSION = '0.4.0';
+const APP_VERSION = '0.4.1';
 
 const KIND = {
   primary:   { cls:'pri', label:'Primary Weapons',   short:'Primary' },
