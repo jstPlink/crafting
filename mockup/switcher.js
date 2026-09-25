@@ -30,10 +30,12 @@
 
   const css = document.createElement('style');
   css.textContent = `
-    #build{cursor:pointer;pointer-events:auto;padding:4px 6px;margin:-4px -6px}
-    #build::after{content:" ▾"}
-    #build:hover{color:#cfd6dc}
-    #verpanel{position:absolute;right:80px;top:138px;width:500px;max-height:820px;overflow-y:auto;z-index:60;display:none;background:#0a0c0f;border:1px solid var(--accent);
+    /* the version button: !important because older versions style #build as a tiny grey label */
+    #stage #build{cursor:pointer;pointer-events:auto;font-size:20px!important;font-weight:700;letter-spacing:.08em!important;color:#dfe5ea!important;
+      padding:7px 16px;background:rgba(10,12,15,.75);border:1px solid #4a4f55}
+    #stage #build::after{content:" ▾";color:var(--accent-2)}
+    #stage #build:hover,#stage #build.open{border-color:var(--accent-2)}
+    #verpanel{position:absolute;right:80px;top:160px;width:500px;max-height:820px;overflow-y:auto;z-index:60;display:none;background:#0a0c0f;border:1px solid var(--accent);
       font-size:17px;letter-spacing:.03em;color:#dfe5ea;scrollbar-width:thin;scrollbar-color:#3a3f46 transparent}
     #verpanel.show{display:block}
     #verpanel h4{font-size:15px;letter-spacing:.14em;color:var(--dim);padding:12px 16px 6px;font-weight:600}
@@ -92,6 +94,7 @@
   });
   panel.addEventListener('pointerdown', e => e.stopPropagation());
   label.title = 'Versions & experiments';
-  label.addEventListener('click', e => { e.stopPropagation(); render(); panel.classList.toggle('show'); });
-  document.addEventListener('click', e => { if(!panel.contains(e.target)) panel.classList.remove('show'); });
+  const setOpen = on => { panel.classList.toggle('show', on); label.classList.toggle('open', on); };
+  label.addEventListener('click', e => { e.stopPropagation(); render(); setOpen(!panel.classList.contains('show')); });
+  document.addEventListener('click', e => { if(!panel.contains(e.target)) setOpen(false); });
 })();

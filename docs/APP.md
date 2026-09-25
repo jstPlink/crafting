@@ -1,7 +1,7 @@
 # Crafting — riferimento tecnico e funzionale
 
 Documento unico che descrive **come funziona tutta l'app**. Va letto prima di toccare il codice e va
-**aggiornato ogni volta che cambia un comportamento** (vedi "Manutenzione" in fondo).
+**aggiornato quando cambia qualcosa che descrive** (vedi "Quando aggiornare" in fondo).
 Le funzioni sono citate per nome, non per riga: i numeri di riga cambiano.
 
 ## 1. Cos'è
@@ -44,7 +44,7 @@ Ordine di caricamento in `index.html`: `three.min.js` → `GLTFLoader.js` → `a
 - Dev: preview `mockup` (porta 6480), oppure aprire `mockup/index.html` da `file://`.
 - Debug URL: `?model=<url.glb>` carica un body personalizzato.
 - Docker: `docker compose up -d --build` → `http://localhost:6480`. In produzione l'immagine viene da `ghcr.io/jstplink/crafting:latest`.
-- `version.json` è generato dal Dockerfile (versione CI `1.0.<run>`, sha, data). In locale non esiste. La scritta build mostra solo `v<APP_VERSION>`; i dettagli CI (build, sha, data) sono nel tooltip (`title`) quando `version.json` esiste. Cliccando la scritta si apre il menu versioni (§3b).
+- `version.json` è generato dal Dockerfile (versione CI `1.0.<run>`, sha, data). In locale non esiste. La scritta build mostra solo `v<APP_VERSION>`; i dettagli CI (build, sha, data) sono nel tooltip (`title`) quando `version.json` esiste. Il pulsante versione (stessa scritta) apre il menu versioni (§3b).
 - **Versione app**: `APP_VERSION` in `app.js` (oggi `0.4.3`) va incrementata a ogni versione e la versione va congelata con `scripts/snapshot.py` (§3b).
 - nginx serve html/js con `no-cache` e `vendor/` con cache di 7 giorni.
 - **Cache-busting** (Dockerfile): a ogni build ogni `src="….js"` locale di **ogni** `index.html` (radice e `versions/<v>/`) riceve `?v=<sha>`, così né browser né CDN mischiano script vecchi con html nuovo. Gli script nuovi che si aggiungono a un `index.html` sono coperti in automatico (purché locali e senza `?`).
@@ -55,7 +55,7 @@ Obiettivo: poter aprire **qualsiasi versione passata** dell'app e confrontarne i
 
 - **Radice del sito (`/`) = LATEST**: la copia di lavoro, sempre la versione più nuova. Si sviluppa qui.
 - **`/versions/<v>/index.html` = snapshot congelato** di una versione rilasciata (immutabile). Le librerie `vendor/`, `versions.js` e `switcher.js` restano condivise alla radice (lo script riscrive i percorsi in `../../`).
-- **Menu in-app**: click sulla scritta build (sotto i crediti). Elenca LATEST e ogni versione del manifest con data e note, e permette di passare da una all'altra. Solo mouse (è uno strumento da mockup, come la pill INPUT). Il menu è dentro `#stage`, quindi sparisce in view mode.
+- **Menu in-app**: click sul **pulsante versione** in alto a destra, sotto i crediti (riquadro `v0.4.3 ▾`, stile in `switcher.js`, quindi identico in tutte le versioni). Elenca LATEST e ogni versione del manifest con data e note, e permette di passare da una all'altra. Solo mouse (è uno strumento da mockup, come la pill INPUT). Il menu è dentro `#stage`, quindi sparisce in view mode.
 - **Salvataggi separati per versione**: chiave `localStorage` = `saveKey` dell'entry nel manifest (default `crafting.save.<versione>`; la 0.4.0 usa quella storica `crafting.save.v1`). Il pulsante **COPY BUILD HERE** copia le build salvate di un'altra versione in quella corrente (chiede conferma, poi ricarica).
 - **Esperimenti (flag)**: una versione può esporre `window.craftingExperiments = { items(), toggle(id) }`; il menu mostra ogni voce come interruttore ON/OFF. Serve a combinare/confrontare singole funzioni **dentro la stessa versione** (gli snapshot servono invece a confrontare versioni intere).
 - Le versioni congelate non hanno gli esperimenti nuovi (sono codice vecchio); hanno solo il menu, aggiunto dallo script.
@@ -63,7 +63,7 @@ Obiettivo: poter aprire **qualsiasi versione passata** dell'app e confrontarne i
 
 ### Procedura di rilascio (a ogni versione nuova)
 1. Finire le modifiche in `mockup/` e incrementare `APP_VERSION` in `mockup/app.js`.
-2. **Aggiornare questo documento** (regole, UI, input, file, sezione "Versioni").
+2. Aggiornare questo documento **solo se serve** (§15) e aggiungere la riga della versione alla tabella "Versioni" se la versione è significativa.
 3. `python scripts/snapshot.py <versione> --notes "<una riga>"` (fallisce se `APP_VERSION` non coincide o se lo snapshot esiste già).
 4. Commit (incluse `mockup/versions/<v>/` e `mockup/versions.js`), poi `git tag v<versione>`, poi push.
 - Non modificare mai a mano una cartella `versions/<v>/`. Se serve correggerla: `--force`, e dirlo nel commit.
@@ -320,6 +320,48 @@ Tasto `V` / View del pad / pulsante "EXIT VIEW MODE". `#shipbox` occupa tutto lo
 - **Nuovo esperimento (flag)**: voce in `FLAGS` (app.js), `flag('id')` nei punti di render, eventuale classe in `applyFlags` e CSS scopato; il menu la mostra da solo.
 - **Costanti di bilanciamento**: `CARGO_SLOTS`, `STACK`, `RAR_MULT`, `HOLD_MS`.
 
-## 15. Manutenzione di questo documento
-Aggiornare `docs/APP.md` nello **stesso commit** di ogni modifica a: regole di gioco, catalogo, layout/posizioni, input, salvataggio, deploy.
-Incrementare `APP_VERSION` in `app.js` a ogni commit.
+## 15. Quando aggiornare questo documento
+Non a ogni commit. Il criterio: **il testo di questo file, letto dopo la modifica, direbbe qualcosa di falso o mancherebbe di qualcosa che serve per lavorare sul codice?** Se sì, si aggiorna nello **stesso commit**; se no, si lascia stare.
+
+**Aggiornare** quando cambia:
+- una regola di gioco (potenza, cargo, calore, cosa si può montare dove) o la struttura del catalogo (nuovo tipo di modulo/arm/famiglia, nuova stat, nuovo campo);
+- lo **stato** (`S`) o il flusso di `renderAll` / delle funzioni di render citate qui;
+- il **layout**: regioni dello stage, pannelli aggiunti o tolti, cosa mostra una riga;
+- gli **input** (tasti, mapping gamepad, nuove azioni in `act()`);
+- il **salvataggio** (chiavi, formato, cosa viene salvato) o il **boot**;
+- **deploy, versioning, script, file** del repository, esperimenti/flag (nuovo flag, o un flag che cambia comportamento);
+- una convenzione da rispettare (§12), oppure quando si scopre/si rimuove codice morto o una stranezza (§13).
+
+**Non serve** aggiornare per:
+- ritocchi visivi (colori, spaziature, dimensioni di font) che non cambiano cosa mostra la UI né la regola in §12;
+- bugfix che riportano il comportamento a quello già descritto;
+- valori di bilanciamento o nuovi elementi di un catalogo già descritto (un'altra arma, un altro body): il catalogo vive nel codice, qui si spiega solo come è fatto;
+- refactoring interni, rinomine di variabili non citate qui, commenti;
+- numeri di riga (qui non ci sono di proposito).
+
+Una nuova **versione** (`APP_VERSION` + snapshot) non obbliga da sola ad aggiornare il documento: serve solo la riga in "Versioni" quando la versione è significativa, il resto segue i criteri sopra.
+
+## 16. Backlog UX (proposte ancora aperte)
+
+Nasce da un'analisi di leggibilità dell'app. Da riprendere all'inizio di ogni nuova conversazione (vedi `CLAUDE.md`).
+Convenzione: ogni intervento nuovo va dietro un flag (§3c) e si rilascia come versione nuova (§3b), così si può confrontare.
+
+**Fatti (0.4.3):** 1 testo leggibile, 4 stat chiave sulle righe (+ delta, BEST, ordinamento), 5 overview più chiara.
+
+| # | Intervento | Cosa cambierebbe | Note |
+|---|---|---|---|
+| 2 | Rarità non solo a colore | Badge "LV5" o pip numerici accanto al nome; il colore resta come rinforzo | Dalla 0.4.2 colore di tipo modulo, di taglia socket e di rarità convivono: il punto è più utile. Farlo insieme al 3 |
+| 3 | Rarità in conflitto con la selezione | Riga neutra, rarità solo su striscia laterale + badge; sfondo colorato riservato alla selezione | Quasi solo CSS |
+| 6 | Stati "non si può" sempre visibili | "NO POWER" / "CARGO FULL" oggi solo su focus/hover: mostrarli sempre con il motivo ("+3 oltre il generatore"), riga attenuata | Piccolo. La classe `nopow` già scurisce la riga |
+| 7 | Calore spiegato senza mouse | Sostituire il tooltip "?" (solo hover) con una riga di testo fissa sotto la barra | Con il gamepad il tooltip non è raggiungibile |
+| 8 | Nomi troncati | Nome breve + sottotitolo di famiglia, oppure solo icona di famiglia | Già attenuato nella 0.4.3 (tooltip col nome, niente glifo taglia sui moduli); restano 4–13px di troncamento nelle righe annidate profonde |
+| 9 | Collegamento pannello ↔ 3D | Etichette persistenti sui socket, uguali a quelle della lista | Il più grosso: tocca `ship3d.js` e il posizionamento delle etichette |
+| 10 | Rumore in cima | Nascondere DEBUG · RANDOM BUILD e la pill INPUT dietro `?debug` o in un angolo | Facile. Da decidere se la pill INPUT serve ancora ai test |
+| 11 | Extra d'uso | Annulla/ripristina l'ultima modifica, "reset build", avviso alla prima apertura | Nessuno esiste. L'annulla è il più utile: un errore di equipaggiamento oggi non si recupera |
+
+Ordine suggerito: 2+3, poi 6, poi 11 (annulla), poi 9.
+
+**Pendenze tecniche**
+- Tag git `v0.4.1` sul remoto punta al commit `61babe6` (mio, pre-merge) invece che a `ccb8dc9`. Correzione: `git push origin :refs/tags/v0.4.1 && git tag -f v0.4.1 ccb8dc9 && git push origin v0.4.1` (l'assistente non può farla: è bloccata come operazione distruttiva).
+- Il cache-busting esteso del Dockerfile (a tutti gli `index.html`, comprese le versioni congelate) è stato provato solo come regex, non con un build Docker reale.
+- Il tasto X del gamepad per l'ordinamento cargo non è stato provato con un controller reale.
