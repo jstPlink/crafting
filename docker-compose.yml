@@ -1,7 +1,9 @@
 services:
   crafting:
+    # image published by the GitHub Actions workflow (update on the NAS: docker compose pull && docker compose up -d)
+    image: ghcr.io/jstplink/crafting:latest
+    # or build it locally: docker compose up -d --build
     build: .
-    image: crafting-mockup:latest
     container_name: crafting
     restart: unless-stopped
     ports:

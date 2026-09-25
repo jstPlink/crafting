@@ -58,6 +58,7 @@ button{font:inherit;color:inherit;background:none;border:0;cursor:pointer}
 .tab.act{color:var(--accent-2)}
 .tab.act::before,.tab.act::after{content:"";position:absolute;top:0;bottom:0;width:10px;border:2px solid var(--accent)}
 .tab.act::before{left:0;border-right:0}.tab.act::after{right:0;border-left:0}
+#build{position:absolute;right:80px;top:110px;font-size:13px;letter-spacing:.12em;color:#59626a;text-align:right}
 .credits{position:absolute;right:80px;top:44px;border:2px solid var(--accent);color:var(--accent-2);padding:12px 24px;font-size:24px;letter-spacing:.05em;background:#1c1616}
 
 /* ---------- glyphs ---------- */
@@ -238,6 +239,7 @@ button{font:inherit;color:inherit;background:none;border:0;cursor:pointer}
   <div class="scene"></div>
 
   <div id="top"></div>
+  <div id="build">BUILD · DEV</div>
   <div id="toast"></div>
 
   <div id="left" class="panel"></div>
@@ -820,6 +822,9 @@ addEventListener('resize',fit); fit();
 <script src="ship3d.js"></script>
 <script>
 renderTop(); initShip(); renderAll(); requestAnimationFrame(pollPad);
+fetch('version.json',{cache:'no-store'}).then(r=>r.ok?r.json():Promise.reject()).then(v=>{
+  $('#build').textContent = `BUILD v${v.version} · ${v.sha}`; $('#build').title = v.date;
+}).catch(()=>{});
 </script>
 </body>
 </html>
