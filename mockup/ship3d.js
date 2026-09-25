@@ -4,6 +4,9 @@
    Globals used from app.js: S, LY, PV, BODY, SIZE, ITEM, layout(),
    renderAll(), toast(), $
 
+   MAIN BODIES: the catalogue lives in app.js (BODIES). Each body is either procedural
+   (look.r = hull radii, look.color) or a dropped .glb (body.model3d).
+
    SOCKET CONTRACT for real main-body models (.glb):
      add an Empty/node per socket named  sock_p<size>_<n>
        sock_p3_1, sock_p3_2 …   large  (blue circle)
@@ -14,22 +17,23 @@
    sockets, so the model only has to describe the bare main body.
    ===================================================================== */
 const SHIP_W = 920, SHIP_H = 530;
-const TARGET = new THREE.Vector3(0, .1, -.3);
+const TARGET = new THREE.Vector3(0, .5, -.3);
 
 const PYL_R = { 1:.07, 2:.11, 3:.17 };       // strut radius by socket size
 const MOD_SCALE = { 1:.55, 2:.85, 3:1.3 };   // module size by socket size
 const SPR_SIZE = { 1:.55, 2:.8, 3:1.1 };     // socket marker size
 const KIND_COL = { primary:0xe2685b, secondary:0xd8b25a, engine:0x3d8ff0 };
+const MOD_R = { 1:.3, 2:.45, 3:.7 };          // rough module radius, to place the size badge beside it
 
 const V = { ready:false, cur:{ yaw:.75, pitch:.34, d:13.2 }, tex:{}, raycaster:new THREE.Raycaster(), tmp:new THREE.Vector3(),
-            pickers:[], anchor:{}, spr:{}, modG:{}, flames:[] };
+            pickers:[], anchor:{}, spr:{}, modG:{}, flames:[], customN:0 };
 
 /* ---------- helpers ---------- */
 const stdMat = (color, metal=.35, rough=.45, extra={}) => new THREE.MeshStandardMaterial({ color, metalness:metal, roughness:rough, ...extra });
 const v3 = a => new THREE.Vector3(a[0], a[1], a[2]);
 
-function ringTexture(shape, color, dashed){
-  const key = shape+color+dashed; if(V.tex[key]) return V.tex[key];
+function ringTexture(shape, color, dashed, filled=false){
+  const key = shape+color+dashed+filled; if(V.tex[key]) return V.tex[key];
   const c = document.createElement('canvas'); c.width = c.height = 128;
   const g = c.getContext('2d');
   g.strokeStyle = color; g.lineWidth = 10; g.lineJoin = 'round';
@@ -38,6 +42,7 @@ function ringTexture(shape, color, dashed){
   if(shape==='tri'){ g.moveTo(64,14); g.lineTo(116,106); g.lineTo(12,106); g.closePath(); }
   else if(shape==='sq'){ g.rect(20,20,88,88); }
   else { g.arc(64,64,48,0,Math.PI*2); }
+  if(filled){ g.fillStyle = color; g.fill(); }
   g.stroke();
   const t = new THREE.CanvasTexture(c); t.anisotropy = 4;
   return V.tex[key] = t;
@@ -54,24 +59,27 @@ function strut(a, b, r, mat){
   return m;
 }
 
-/* ---------- placeholder main body ---------- */
-function buildHull(){
+/* ---------- procedural main bodies ---------- */
+function buildHull(body){
   const g = new THREE.Group();
-  const gold = stdMat(0xb98a3e,.4,.4), dark = stdMat(0x22272d,.5,.5), steel = stdMat(0x59616b,.5,.45);
+  const [rx,ry,rz] = body.look.r;
+  const main = stdMat(body.look.color,.4,.4);
+  const dark = stdMat(0x22272d,.5,.5), steel = stdMat(0x59616b,.5,.45);
+  const glass = stdMat(new THREE.Color(body.look.color).multiplyScalar(.55).getHex(),.5,.3);
   const cyan = new THREE.MeshBasicMaterial({ color:0x35e0d0 });
 
-  const body = new THREE.Mesh(new THREE.SphereGeometry(1,40,24), gold); body.scale.set(1.5,1.1,2.9); g.add(body);
-  const belly = new THREE.Mesh(new THREE.SphereGeometry(1,24,16), dark); belly.scale.set(1.1,.6,2.0); belly.position.set(0,-.6,.1); g.add(belly);
-  const cockpit = new THREE.Mesh(new THREE.SphereGeometry(.5,24,16), stdMat(0x7a5a24,.5,.3)); cockpit.scale.set(1.2,.8,1.8); cockpit.position.set(0,.75,1.2); g.add(cockpit);
+  const hull = new THREE.Mesh(new THREE.SphereGeometry(1,40,24), main); hull.scale.set(rx,ry,rz); g.add(hull);
+  const belly = new THREE.Mesh(new THREE.SphereGeometry(1,24,16), dark); belly.scale.set(.73*rx,.55*ry,.69*rz); belly.position.set(0,-.55*ry,.03*rz); g.add(belly);
+  const cockpit = new THREE.Mesh(new THREE.SphereGeometry(.5,24,16), glass); cockpit.scale.set(.8*rx,.73*ry,.62*rz); cockpit.position.set(0,.68*ry,.41*rz); g.add(cockpit);
   for(const sx of [-1,1]){
-    const strip = new THREE.Mesh(new THREE.BoxGeometry(.08,.08,.9), cyan); strip.position.set(sx*.8,.5,1.3); strip.rotation.y = sx*-.25; g.add(strip);
-    const fin = new THREE.Mesh(new THREE.BoxGeometry(.1,.7,1.3), steel); fin.position.set(sx*1.35,-.1,-.5); fin.rotation.z = sx*.3; g.add(fin);
+    const strip = new THREE.Mesh(new THREE.BoxGeometry(.08,.08,.31*rz), cyan); strip.position.set(sx*.53*rx,.45*ry,.45*rz); strip.rotation.y = sx*-.25; g.add(strip);
+    const fin = new THREE.Mesh(new THREE.BoxGeometry(.1,.64*ry,.45*rz), steel); fin.position.set(sx*.9*rx,-.09*ry,-.17*rz); fin.rotation.z = sx*.3; g.add(fin);
   }
-  const rear = new THREE.Mesh(new THREE.BoxGeometry(1.8,.9,1.1), dark); rear.position.set(0,.1,-2.6); g.add(rear);
+  const rear = new THREE.Mesh(new THREE.BoxGeometry(1.2*rx,.82*ry,.38*rz), dark); rear.position.set(0,.09*ry,-.9*rz); g.add(rear);
 
   // a base plate + coloured rim under every socket
   const zAxis = new THREE.Vector3(0,0,1);
-  for(const s of BODY.sockets){
+  for(const s of body.sockets){
     const r = SPR_SIZE[s.size]*.42, dir = v3(s.dir).normalize();
     const plate = new THREE.Mesh(new THREE.CylinderGeometry(r,r*1.15,.12,20).rotateX(Math.PI/2), dark);
     plate.position.copy(v3(s.pos)); plate.quaternion.setFromUnitVectors(zAxis, dir); g.add(plate);
@@ -128,17 +136,19 @@ function initShip(){
 
   // docking platform
   const floorY = -3.0;
-  const floor = new THREE.Mesh(new THREE.CylinderGeometry(5.2,5.2,.12,72), stdMat(0x12171d,.3,.7)); floor.position.y = floorY; scene.add(floor);
-  const ringG = new THREE.Mesh(new THREE.TorusGeometry(4.95,.05,8,120), new THREE.MeshBasicMaterial({ color:0x2f7a43 })); ringG.rotation.x = Math.PI/2; ringG.position.y = floorY+.08; scene.add(ringG);
-  const ringO = new THREE.Mesh(new THREE.TorusGeometry(3.9,.04,8,120), new THREE.MeshBasicMaterial({ color:0x8a4230 })); ringO.rotation.x = Math.PI/2; ringO.position.y = floorY+.08; scene.add(ringO);
-  const shadow = new THREE.Mesh(new THREE.CircleGeometry(3.0,48), new THREE.MeshBasicMaterial({ color:0x0a0c0e })); shadow.rotation.x = -Math.PI/2; shadow.position.y = floorY+.07; scene.add(shadow);
+  const floorG = V.floorG = new THREE.Group(); scene.add(floorG);
+  const floor = new THREE.Mesh(new THREE.CylinderGeometry(5.2,5.2,.12,72), stdMat(0x12171d,.3,.7)); floor.position.y = floorY; floorG.add(floor);
+  const ringG = new THREE.Mesh(new THREE.TorusGeometry(4.95,.05,8,120), new THREE.MeshBasicMaterial({ color:0x2f7a43 })); ringG.rotation.x = Math.PI/2; ringG.position.y = floorY+.08; floorG.add(ringG);
+  const ringO = new THREE.Mesh(new THREE.TorusGeometry(3.9,.04,8,120), new THREE.MeshBasicMaterial({ color:0x8a4230 })); ringO.rotation.x = Math.PI/2; ringO.position.y = floorY+.08; floorG.add(ringO);
+  const shadow = new THREE.Mesh(new THREE.CircleGeometry(3.0,48), new THREE.MeshBasicMaterial({ color:0x0a0c0e })); shadow.rotation.x = -Math.PI/2; shadow.position.y = floorY+.07; floorG.add(shadow);
 
   const shipRoot = V.shipRoot = new THREE.Group(); scene.add(shipRoot);
-  V.hull = buildHull(); shipRoot.add(V.hull);
+  V.hull = BODY.model3d || buildHull(BODY); shipRoot.add(V.hull);
   V.dyn = new THREE.Group(); shipRoot.add(V.dyn);   // pylons, modules, markers: rebuilt on every change
 
   V.ready = true;
   resizeShip();
+  setShipBody();
 
   // drag & drop a .glb main body
   const stg = $('#stage');
@@ -166,13 +176,25 @@ function setShipCursor(c){ const cv = V.renderer?.domElement; if(cv) cv.style.cu
 function loadShipModel(url, name){
   new THREE.GLTFLoader().load(url, gltf => setHull(gltf.scene, name), undefined, () => toast('MODEL LOAD FAILED','bad'));
 }
-function setHull(obj, name){
+// swap the 3D hull / platform to the active body (called when the selector changes body)
+function setShipBody(){
+  if(!V.ready) return;
   V.shipRoot.remove(V.hull);
+  V.hull = BODY.model3d || buildHull(BODY);
+  V.shipRoot.add(V.hull);
+  const ry = BODY.look ? BODY.look.r[1] : 1.1;
+  V.floorG.scale.set(BODY.plat||1, 1, BODY.plat||1);
+  V.floorG.position.y = 3.0 - (ry + 1.9);
+}
+window.setShipBody = setShipBody;
+
+// a dropped .glb becomes a new main body in the selector
+function setHull(obj, name){
   const box = new THREE.Box3().setFromObject(obj), size = box.getSize(new THREE.Vector3()), ctr = box.getCenter(new THREE.Vector3());
   obj.position.sub(ctr);
-  const wrap = new THREE.Group(); wrap.add(obj); wrap.scale.setScalar(6 / Math.max(size.x,size.y,size.z));
-  V.shipRoot.add(wrap); V.hull = wrap;
-  V.shipRoot.updateMatrixWorld(true);
+  const k = 6 / Math.max(size.x,size.y,size.z);
+  const wrap = new THREE.Group(); wrap.add(obj); wrap.scale.setScalar(k);
+  V.shipRoot.add(wrap); V.shipRoot.updateMatrixWorld(true);
 
   const found = [];
   obj.traverse(n => {
@@ -183,20 +205,19 @@ function setHull(obj, name){
     const dir = new THREE.Vector3(0,0,1).applyQuaternion(wq);
     found.push({ size:+m[1], n:+m[2], pos:[wp.x,wp.y,wp.z], dir:[dir.x,dir.y,dir.z] });
   });
-  if(found.length){
-    // the model now defines the sockets: hand back everything that was installed
-    for(const k of Object.keys(S.att)) S.cargo[S.att[k].id] = (S.cargo[S.att[k].id]||0)+1;
-    S.att = {};
-    found.sort((a,b) => b.size-a.size || a.n-b.n);
-    BODY.sockets = found.map((f,i) => ({ id:'b'+i, size:f.size, pos:f.pos, dir:f.dir }));
-    S.sel = 'b0'; S.focus = 'slots';
-    if(name) BODY.name = name.split(/[\/]/).pop().replace(/\.(glb|gltf)$/i,'').replace(/[_-]+/g,' ').toUpperCase();
-    const c = n => found.filter(f=>f.size===n).length;
-    toast(`MODEL LOADED · ${found.length} SOCKETS (P3×${c(3)} P2×${c(2)} P1×${c(1)})`);
-  }else{
-    toast('MODEL LOADED · NO sock_p* NODES, KEEPING DEFAULT SOCKETS','info');
-  }
-  renderAll();
+  V.shipRoot.remove(wrap);
+  if(!found.length){ toast('NO sock_p* NODES FOUND · MODEL IGNORED','bad'); return; }
+
+  found.sort((a,b) => b.size-a.size || a.n-b.n);
+  const id = 'custom' + (++V.customN);
+  const label = (name || id).split(/[\\/]/).pop().replace(/\.(glb|gltf)$/i,'').replace(/[_-]+/g,' ').toUpperCase();
+  BODIES[id] = { id, name:label, tag:'CUSTOM', maxPower:26, base:{ value:1500, hull:20000, shield:10000 },
+    cam:13, plat:1.1, look:{ r:[size.x*k/2, size.y*k/2, size.z*k/2], color:0x777777 },
+    sockets: found.map((f,i) => ({ id:'b'+i, size:f.size, pos:f.pos, dir:f.dir })), model3d:wrap };
+  BODY_LIST.push(id);
+  switchBody(id);
+  const c = n => found.filter(f=>f.size===n).length;
+  toast(`${label} ADDED · ${found.length} SOCKETS (P3×${c(3)} P2×${c(2)} P1×${c(1)})`);
 }
 
 /* ---------- state -> scene ---------- */
@@ -240,8 +261,9 @@ function renderShip(){
     }
 
     // socket marker: triangle / square / circle in the size colour.
-    // Off while something is mounted on the socket (the part itself is the indicator);
-    // it only comes back, wider than the part, to show selection / hover.
+    //  - free socket: dashed outline
+    //  - module mounted: small filled size badge beside the part (never over it)
+    //  - pylon mounted: none, except a wide ring while selected / hovered
     const sel = S.sel===s.id, hov = S.hoverSlot===s.id;
     const occupied = !!a;
     if(!occupied || sel || hov){
@@ -251,6 +273,12 @@ function renderShip(){
       const sp = makeSprite(ringTexture(SIZE[s.size].shape, col, dashed));
       sp.position.copy(v3(s.pos)); sp.userData.base = SPR_SIZE[s.size] * (occupied ? 1.7 : 1);
       sp.scale.setScalar(sp.userData.base); V.dyn.add(sp); V.spr[s.id] = sp;
+    }
+    if(a && a.t==='mod'){
+      const bs = SPR_SIZE[s.size]*.42, off = MOD_R[s.size] + bs*.6;
+      const bd = makeSprite(ringTexture(SIZE[s.size].shape, SIZE[s.size].color, false, true));
+      bd.center.set(.5, .5 - off/bs);              // drawn above the part, in screen space
+      bd.position.copy(v3(s.pos)); bd.scale.setScalar(bs); V.dyn.add(bd);
     }
 
     const pick = new THREE.Mesh(new THREE.SphereGeometry(SPR_SIZE[s.size]*.6,10,8), new THREE.MeshBasicMaterial({ visible:false }));
@@ -263,7 +291,7 @@ function renderShip(){
     if(!s){ el.style.display='none'; el.dataset.slot=''; return; }
     const at = att[id], it = at ? ITEM(at.id) : null;
     el.dataset.slot = id;
-    el.innerHTML = `<small>${SIZE[s.size].label} SOCKET</small><b>${it ? it.name.toUpperCase() : 'EMPTY'}</b>`;
+    el.innerHTML = `<small>${SIZE[s.size].label} SOCKET</small><b>${it ? lvBadge(it) + it.name.toUpperCase() : 'EMPTY'}</b>`;
     el.style.display = 'block';
   };
   fill($('#tagSel'), S.sel);

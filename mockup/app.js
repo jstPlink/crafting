@@ -13,8 +13,6 @@
          Split      N > 2 x (N-1)    two smaller output sockets  (N >= 2)
    Pylon outputs are sockets too, so pylons can be chained.
    ===================================================================== */
-const MAX_POWER = 26;
-const BASE = { value: 1900, hull: 22000, shield: 14000 };
 
 const SIZE = {
   1: { n:1, label:'P1', name:'Small',  color:'#e5484d', shape:'tri'  },
@@ -32,32 +30,45 @@ const TAB_ORDER = ['pylon','primary','secondary','engine'];
 const TAB_LABEL = { pylon:'Pylons', primary:'Primary', secondary:'Secondary', engine:'Engines' };
 const TAB_CLS   = { pylon:'pyl', primary:'pri', secondary:'sec', engine:'eng' };
 
-// kin/exp/nrg = damage types, eng = thrust
+// module rarity: lv 1..7, each with its colour
+const RARITY = {
+  1: { label:'LV1', color:'#9a6a3c' },   // brown
+  2: { label:'LV2', color:'#a3a9b0' },   // grey
+  3: { label:'LV3', color:'#4fcf5f' },   // green
+  4: { label:'LV4', color:'#4cc4ff' },   // light blue
+  5: { label:'LV5', color:'#ff8c1a' },   // orange
+  6: { label:'LV6', color:'#ff3fc8' },   // fuchsia
+  7: { label:'LV7', color:'#ffcf3a' },   // gold
+};
+const rarCol = it => RARITY[it?.lv]?.color || '';
+const lvBadge = it => it?.lv ? `<span class="lv" style="--rc:${rarCol(it)}">${RARITY[it.lv].label}</span>` : '';
+
+// kin/exp/nrg = damage types, eng = thrust, lv = rarity
 const MODS = {
   // ---- primary weapons
-  peashot:  { id:'peashot',  name:'Peashot',        kind:'primary',   size:1, power:1, value:160,  kin:4 },
-  flicker:  { id:'flicker',  name:'Flicker Beam',   kind:'primary',   size:1, power:1, value:210,  nrg:6 },
-  kb:       { id:'kb',       name:'K&B Gun',        kind:'primary',   size:2, power:2, value:380,  kin:9 },
-  scatter:  { id:'scatter',  name:'Ion Scatter',    kind:'primary',   size:2, power:3, value:820,  kin:4, nrg:12 },
-  pulse:    { id:'pulse',    name:'Pulse Lance',    kind:'primary',   size:2, power:4, value:1150, nrg:22 },
-  rail:     { id:'rail',     name:'Rail Driver',    kind:'primary',   size:3, power:6, value:2300, kin:34 },
-  halberd:  { id:'halberd',  name:'Halberd Cannon', kind:'primary',   size:3, power:7, value:2900, kin:20, nrg:20 },
+  peashot:  { id:'peashot',  name:'Peashot',        kind:'primary',   size:1, lv:1, power:1, value:160,  kin:4 },
+  flicker:  { id:'flicker',  name:'Flicker Beam',   kind:'primary',   size:1, lv:2, power:1, value:210,  nrg:6 },
+  kb:       { id:'kb',       name:'K&B Gun',        kind:'primary',   size:2, lv:2, power:2, value:380,  kin:9 },
+  scatter:  { id:'scatter',  name:'Ion Scatter',    kind:'primary',   size:2, lv:4, power:3, value:820,  kin:4, nrg:12 },
+  pulse:    { id:'pulse',    name:'Pulse Lance',    kind:'primary',   size:2, lv:5, power:4, value:1150, nrg:22 },
+  rail:     { id:'rail',     name:'Rail Driver',    kind:'primary',   size:3, lv:6, power:6, value:2300, kin:34 },
+  halberd:  { id:'halberd',  name:'Halberd Cannon', kind:'primary',   size:3, lv:7, power:7, value:2900, kin:20, nrg:20 },
   // ---- secondary weapons
-  dart:     { id:'dart',     name:'Dart Pod',       kind:'secondary', size:1, power:2, value:300,  exp:40 },
-  sho:      { id:'sho',      name:'SHO-Gun',        kind:'secondary', size:2, power:3, value:640,  exp:105 },
-  seeker:   { id:'seeker',   name:'Seeker Pod',     kind:'secondary', size:2, power:5, value:1400, exp:160 },
-  mortar:   { id:'mortar',   name:'Arc Mortar',     kind:'secondary', size:3, power:7, value:2100, exp:90, nrg:60 },
-  siege:    { id:'siege',    name:'Siege Launcher', kind:'secondary', size:3, power:9, value:3400, exp:300 },
+  dart:     { id:'dart',     name:'Dart Pod',       kind:'secondary', size:1, lv:3, power:2, value:300,  exp:40 },
+  sho:      { id:'sho',      name:'SHO-Gun',        kind:'secondary', size:2, lv:3, power:3, value:640,  exp:105 },
+  seeker:   { id:'seeker',   name:'Seeker Pod',     kind:'secondary', size:2, lv:5, power:5, value:1400, exp:160 },
+  mortar:   { id:'mortar',   name:'Arc Mortar',     kind:'secondary', size:3, lv:6, power:7, value:2100, exp:90, nrg:60 },
+  siege:    { id:'siege',    name:'Siege Launcher', kind:'secondary', size:3, lv:7, power:9, value:3400, exp:300 },
   // ---- engines
-  trickle:  { id:'trickle',  name:'Trickle Jet',    kind:'engine',    size:1, power:1, value:140,  eng:14 },
-  speeder:  { id:'speeder',  name:'Speeder',        kind:'engine',    size:2, power:1, value:352,  eng:41 },
-  ion:      { id:'ion',      name:'Ion Drive',      kind:'engine',    size:2, power:2, value:900,  eng:68 },
-  bulwark:  { id:'bulwark',  name:'Bulwark Drive',  kind:'engine',    size:2, power:2, value:760,  eng:30, hull:1500 },
-  aegis:    { id:'aegis',    name:'Aegis Thruster', kind:'engine',    size:2, power:2, value:820,  eng:35, shield:2000 },
-  behemoth: { id:'behemoth', name:'Behemoth Drive', kind:'engine',    size:3, power:4, value:2600, eng:120 },
-  bastion:  { id:'bastion',  name:'Bastion Drive',  kind:'engine',    size:3, power:4, value:2800, eng:70, hull:4000, shield:3000 },
+  trickle:  { id:'trickle',  name:'Trickle Jet',    kind:'engine',    size:1, lv:1, power:1, value:140,  eng:14 },
+  speeder:  { id:'speeder',  name:'Speeder',        kind:'engine',    size:2, lv:2, power:1, value:352,  eng:41 },
+  ion:      { id:'ion',      name:'Ion Drive',      kind:'engine',    size:2, lv:4, power:2, value:900,  eng:68 },
+  bulwark:  { id:'bulwark',  name:'Bulwark Drive',  kind:'engine',    size:2, lv:3, power:2, value:760,  eng:30, hull:1500 },
+  aegis:    { id:'aegis',    name:'Aegis Thruster', kind:'engine',    size:2, lv:4, power:2, value:820,  eng:35, shield:2000 },
+  behemoth: { id:'behemoth', name:'Behemoth Drive', kind:'engine',    size:3, lv:5, power:4, value:2600, eng:120 },
+  bastion:  { id:'bastion',  name:'Bastion Drive',  kind:'engine',    size:3, lv:6, power:4, value:2800, eng:70, hull:4000, shield:3000 },
 };
-// pylons: `size` is the input socket size
+// pylons: `size` is the input socket size. Pylons are unlimited: no cargo quantity
 const PYLONS = {
   ext1:   { id:'ext1',   name:'Extension P1',    type:'ext',   size:1, value:120 },
   ext2:   { id:'ext2',   name:'Extension P2',    type:'ext',   size:2, value:220 },
@@ -70,22 +81,68 @@ const ITEM_ORDER = Object.keys(ITEMS);
 const isPylon = id => !!PYLONS[id];
 const outputsOf = P => P.type==='ext' ? [P.size] : [P.size-1, P.size-1];
 
-// The main body. Sockets: position + outward direction (model space).
-// Rule: no sockets on the rear of the hull.
-// A .glb replaces this list with the sock_p<size>_<n> nodes found in the model.
-const BODY = {
-  name: 'ZEPHYROS',
-  sockets: [
-    { id:'b0', size:3, pos:[-1.5,-0.35, 0.6], dir:[-1,-.12, .1] },
-    { id:'b1', size:3, pos:[ 1.5,-0.35, 0.6], dir:[ 1,-.12, .1] },
-    { id:'b2', size:2, pos:[-1.05, 0.85, 0.1], dir:[-.55, 1, .1] },
-    { id:'b3', size:2, pos:[ 1.05, 0.85, 0.1], dir:[ .55, 1, .1] },
-    { id:'b4', size:2, pos:[ 0.0, 1.15, 0.2], dir:[0, 1, .1] },
-    { id:'b5', size:1, pos:[-0.4,-0.55, 2.3], dir:[-.3,-.2, 1] },
-    { id:'b6', size:1, pos:[ 0.4,-0.55, 2.3], dir:[ .3,-.2, 1] },
-    { id:'b7', size:1, pos:[ 0.0,-1.25, 0.4], dir:[0,-1, .2] },
-  ],
+// MAIN BODIES. Each one defines its sockets (position + outward direction, model space),
+// its power budget, its base stats and a 3D look.
+// Rules: no sockets on the rear of the hull; sockets keep clear of each other in front view.
+// A .glb dropped on the scene becomes a new body built from its sock_p<size>_<n> nodes.
+const BODIES = {
+  zephyros: {
+    id:'zephyros', name:'ZEPHYROS', tag:'MIXED', maxPower:26, base:{ value:1900, hull:22000, shield:14000 },
+    cam:13.6, plat:1,
+    look:{ r:[1.5,1.1,2.9], color:0xb98a3e },
+    sockets:[
+      { id:'b0', size:3, pos:[-1.5,-0.35, 0.6], dir:[-1,-.12, .1] },
+      { id:'b1', size:3, pos:[ 1.5,-0.35, 0.6], dir:[ 1,-.12, .1] },
+      { id:'b2', size:2, pos:[-1.05, 0.85, 0.1], dir:[-.55, 1, .1] },
+      { id:'b3', size:2, pos:[ 1.05, 0.85, 0.1], dir:[ .55, 1, .1] },
+      { id:'b4', size:2, pos:[ 0.0, 1.15, 0.2], dir:[0, 1, .1] },
+      { id:'b5', size:1, pos:[-0.4,-0.55, 2.3], dir:[-.3,-.2, 1] },
+      { id:'b6', size:1, pos:[ 0.4,-0.55, 2.3], dir:[ .3,-.2, 1] },
+      { id:'b7', size:1, pos:[ 0.0,-1.25, 0.4], dir:[0,-1, .2] },
+    ],
+  },
+  // light scout: four small sockets only
+  needle: {
+    id:'needle', name:'NEEDLE', tag:'LIGHT', maxPower:12, base:{ value:800, hull:9000, shield:6000 },
+    cam:8.6, plat:.8,
+    look:{ r:[.8,.6,2.6], color:0x8fa6b8 },
+    sockets:[
+      { id:'b0', size:1, pos:[-0.85, 0.0, 0.5], dir:[-1, 0, .15] },
+      { id:'b1', size:1, pos:[ 0.85, 0.0, 0.5], dir:[ 1, 0, .15] },
+      { id:'b2', size:1, pos:[ 0.0, 0.65, 0.8], dir:[0, 1, .1] },
+      { id:'b3', size:1, pos:[ 0.0,-0.65, 0.8], dir:[0,-1, .1] },
+    ],
+  },
+  // heavy hauler: six large sockets
+  colossus: {
+    id:'colossus', name:'COLOSSUS', tag:'HEAVY', maxPower:40, base:{ value:4200, hull:42000, shield:30000 },
+    cam:16.5, plat:1.3,
+    look:{ r:[2.3,1.7,3.6], color:0x8a4a3a },
+    sockets:[
+      { id:'b0', size:3, pos:[-2.35, 0.0, 0.4], dir:[-1, 0, .1] },
+      { id:'b1', size:3, pos:[ 2.35, 0.0, 0.4], dir:[ 1, 0, .1] },
+      { id:'b2', size:3, pos:[-1.4, 1.3, 0.3], dir:[-.6, 1, .1] },
+      { id:'b3', size:3, pos:[ 1.4, 1.3, 0.3], dir:[ .6, 1, .1] },
+      { id:'b4', size:3, pos:[-1.4,-1.3, 0.3], dir:[-.6,-1, .1] },
+      { id:'b5', size:3, pos:[ 1.4,-1.3, 0.3], dir:[ .6,-1, .1] },
+    ],
+  },
+  // mixed gunship: one big dorsal socket, two medium flanks, two small at the nose
+  kestrel: {
+    id:'kestrel', name:'KESTREL', tag:'MIXED', maxPower:20, base:{ value:1500, hull:15000, shield:12000 },
+    cam:13.8, plat:.95,
+    look:{ r:[1.3,.9,2.6], color:0x6c8a62 },
+    sockets:[
+      { id:'b0', size:3, pos:[ 0.0, 0.95, 0.3], dir:[0, 1, .1] },
+      { id:'b1', size:2, pos:[-1.3,-0.1, 0.5], dir:[-1, 0, .1] },
+      { id:'b2', size:2, pos:[ 1.3,-0.1, 0.5], dir:[ 1, 0, .1] },
+      { id:'b3', size:1, pos:[-0.4,-0.5, 2.0], dir:[-.3,-.2, 1] },
+      { id:'b4', size:1, pos:[ 0.4,-0.5, 2.0], dir:[ .3,-.2, 1] },
+    ],
+  },
 };
+const BODY_LIST = ['zephyros','needle','colossus','kestrel'];
+let BODY = BODIES.zephyros;
 const M = id => ({ t:'mod', id }), P = id => ({ t:'pyl', id });
 
 const S = {
@@ -97,13 +154,12 @@ const S = {
     b4:P('split2'), 'b4.0':M('trickle'),
     b5:M('dart'),
   },
-  cargo: { kb:1, scatter:1, pulse:1, rail:1, halberd:1, peashot:1, flicker:1,
-           sho:1, seeker:1, mortar:1, siege:1, dart:1,
-           speeder:2, ion:1, bulwark:1, aegis:1, behemoth:1, bastion:1, trickle:1,
-           ext1:1, ext2:2, ext3:1, split2:1, split3:1 },
+  builds: {},            // saved loadout of every body that is not the active one
+  cargo: Object.fromEntries(Object.keys(MODS).map(id => [id,16])),   // modules only (pylons are unlimited)
   sel: 'b0',
   tab: 'primary',
-  focus: 'slots',        // 'slots' | 'cargo'
+  focus: 'slots',        // 'slots' | 'cargo' | 'body'
+  picker: false, pickIdx: 0,
   cargoIdx: 0,
   hoverCargo: null, hoverSlot: null, hoverRemove: null,
   inputPref: 'gamepad',  // 'gamepad' | 'keyboard' | 'auto'
@@ -112,7 +168,7 @@ const S = {
   scale: 1,
   rot: { yaw:.75, pitch:.34, d:13.2 },
 };
-const ROT0 = { yaw:.75, pitch:.34, d:13.2 };
+const homeRot = () => ({ yaw:.75, pitch:.34, d:BODY.cam });
 
 /* =====================================================================
    HELPERS
@@ -251,7 +307,7 @@ function navOrder(L){
 /* ---------- loadout maths ---------- */
 function calc(att){
   const L = layout(att);
-  const t = { power:0, value:BASE.value, eng:0, hull:BASE.hull, shield:BASE.shield,
+  const t = { power:0, value:BODY.base.value, eng:0, hull:BODY.base.hull, shield:BODY.base.shield,
               pri:{kin:0,exp:0,nrg:0}, sec:{kin:0,exp:0,nrg:0},
               sock:{1:{free:0,total:0},2:{free:0,total:0},3:{free:0,total:0}} };
   for(const s of L.list){
@@ -269,20 +325,20 @@ function calc(att){
 // put `item` (or nothing) on a socket; whatever hung there goes back to cargo
 function attachTo(att, cargo, sid, item){
   const A = { ...att }, C = { ...cargo }, ret = [];
-  for(const k of Object.keys(A)) if(inTree(k,sid)){ ret.push(A[k].id); C[A[k].id] = (C[A[k].id]||0)+1; delete A[k]; }
-  if(item){ A[sid] = { t:isPylon(item)?'pyl':'mod', id:item }; C[item] = (C[item]||0)-1; }
+  for(const k of Object.keys(A)) if(inTree(k,sid)){ ret.push(A[k].id); if(!isPylon(A[k].id)) C[A[k].id] = (C[A[k].id]||0)+1; delete A[k]; }
+  if(item){ A[sid] = { t:isPylon(item)?'pyl':'mod', id:item }; if(!isPylon(item)) C[item] = (C[item]||0)-1; }
   return { att:A, cargo:C, ret };
 }
 function makePreview(sid, to){
   const r = attachTo(S.att, S.cargo, sid, to), t1 = calc(r.att);
-  return { sid, to, att:r.att, ret:r.ret, t1, fits:t1.power <= MAX_POWER };
+  return { sid, to, att:r.att, ret:r.ret, t1, fits:t1.power <= BODY.maxPower };
 }
 
 let LY = layout(S.att), T0 = calc(S.att), PV = null;
 
 const selSock = () => LY.byId[S.sel];
 function cargoItems(size = selSock().size, tab = S.tab){
-  return ITEM_ORDER.filter(id => (S.cargo[id]||0)>0 && ITEMS[id].size===size &&
+  return ITEM_ORDER.filter(id => (isPylon(id) || (S.cargo[id]||0)>0) && ITEMS[id].size===size &&
     (tab==='pylon' ? isPylon(id) : (!isPylon(id) && ITEMS[id].kind===tab))).map(id => ITEMS[id]);
 }
 const cargoList = () => cargoItems();
@@ -297,7 +353,7 @@ function computePreview(){
   const id = S.hoverCargo ?? (S.focus==='cargo' ? list[S.cargoIdx]?.id : null);
   return id ? makePreview(S.sel, id) : null;
 }
-const wouldFit = (sid, id) => calc(attachTo(S.att, S.cargo, sid, id).att).power <= MAX_POWER;
+const wouldFit = (sid, id) => calc(attachTo(S.att, S.cargo, sid, id).att).power <= BODY.maxPower;
 
 /* =====================================================================
    GLYPHS (gamepad / keyboard)
@@ -348,7 +404,7 @@ function renderTop(){
     <div class="credits">121,834 CR</div>`;
 }
 
-function leftRow(s){
+function leftRow(s, up=1){
   const a = S.att[s.id], it = a ? ITEM(a.id) : null, isSel = S.sel===s.id;
   const kcls = !it ? 'free' : a.t==='pyl' ? 'pyl' : KIND[it.kind].cls;
   const cls = ['slot', kcls, isSel?'sel':'', isSel&&S.focus==='slots'?'focus':'', S.hoverSlot===s.id?'hov':'', S.flash===s.id?'flash':'',
@@ -359,9 +415,11 @@ function leftRow(s){
   const right = !it ? '' : a.t==='mod'
     ? `<div class="pwr">${ico('power')}${it.power}</div>`
     : outGlyphs(it);
-  return `<div class="${cls}" data-slot="${s.id}" style="--d:${s.depth}">
+  const rc = it && a.t==='mod' ? rarCol(it) : '';
+  return `<div class="${cls}${rc?' rar':''}" data-slot="${s.id}" style="--d:${s.depth};--up:${up}${rc?`;--rc:${rc}`:''}">
     <div class="ic">${icon}</div>
     <div class="nm">${name}</div>
+    ${it && a.t==='mod' ? lvBadge(it) : ''}
     ${it && a.t==='mod' ? sg(s.size,12) : ''}${right}
     ${isSel&&S.focus==='slots'?`<span class="kh">${glyph('A')}</span>`:''}
     ${it?`<button class="unq" data-unq="${s.id}" title="Unequip">${ico('x')}</button>`:''}
@@ -371,19 +429,22 @@ function leftRow(s){
 function renderLeft(){
   const keep = $('#left .lp-body')?.scrollTop || 0;
   const pt = PV ? PV.t1 : T0;
-  const pcls = pt.power>MAX_POWER ? 'bad' : pt.power>T0.power ? 'warn' : '';
+  const pcls = pt.power>BODY.maxPower ? 'bad' : pt.power>T0.power ? 'warn' : '';
   let html = `
-    <div class="lp-head">
+    <div class="lp-head bodysel ${S.focus==='body'?'focus':''}">
       <div class="ic"><svg width="30" height="30" viewBox="0 0 24 24" fill="currentColor"><path d="M12 2l3 7 7 3-7 3-3 7-3-7-7-3 7-3z"/></svg></div>
-      <div class="nm">${BODY.name}</div>
-      <div class="pw"><svg viewBox="0 0 16 16" fill="currentColor">${I.power}</svg><span class="n ${pcls}">${pt.power}</span><span>/ ${MAX_POWER}</span></div>
+      <div class="nm"><button class="bsb" data-bstep="-1" title="Previous main body">‹</button><span class="bname" data-bpick>${BODY.name}</span><button class="bsb" data-bstep="1" title="Next main body">›</button><small class="btag">${BODY.tag}</small></div>
+      <div class="pw"><svg viewBox="0 0 16 16" fill="currentColor">${I.power}</svg><span class="n ${pcls}">${pt.power}</span><span>/ ${BODY.maxPower}</span></div>
     </div>
     <div class="lp-body">`;
   for(const n of SIZE_ORDER){
     const roots = LY.list.filter(s=>!s.parent && s.size===n);
     if(!roots.length) continue;
     html += `<div class="sec-title"><span class="st-l">${sg(n,16)}${SIZE[n].label} · ${SIZE[n].name.toUpperCase()} SOCKETS</span><span>${roots.length} ON BODY</span></div>`;
-    for(const r of roots) for(const s of LY.list) if(inTree(s.id,r.id)) html += leftRow(s);
+    // rows between a child and its pylon: the tree line runs all the way up to the pylon row
+    const rows = LY.list.filter(s => roots.some(r => inTree(s.id,r.id)));
+    const at = Object.fromEntries(rows.map((s,i) => [s.id,i]));
+    for(const s of rows) html += leftRow(s, s.parent ? at[s.id]-at[s.parent] : 1);
   }
   html += `</div>`;
   $('#left').innerHTML = html;
@@ -406,10 +467,10 @@ function wcell(cls,icon,val,delta){
 function renderRight(){
   const keep = $('.cg-list')?.scrollTop || 0;
   const t = T0, n = PV ? PV.t1 : T0;
-  const over = n.power > MAX_POWER;
+  const over = n.power > BODY.maxPower;
 
   let bar='';
-  for(let i=0;i<MAX_POWER;i++){
+  for(let i=0;i<BODY.maxPower;i++){
     let c='';
     if(over) c='over';
     else if(n.power>=t.power) c = i<t.power ? 'on' : i<n.power ? 'add' : '';
@@ -424,7 +485,7 @@ function renderRight(){
     <div class="head">SPACESHIP OVERVIEW<small>${PV?'PREVIEW':'CURRENT'}</small></div>
     <div class="ov-body">
       <div class="pw-row">
-        <div class="lbl">POWER<b class="${over?'bad':''}">${n.power} / ${MAX_POWER}</b></div>
+        <div class="lbl">POWER<b class="${over?'bad':''}">${n.power} / ${BODY.maxPower}</b></div>
         <div class="pbar">${bar}</div>
         ${pd?`<div class="sd ${over?'dn':dcls('power',pd)}" style="font-size:16px;font-weight:700;padding:1px 7px;border-radius:2px">${sgn(pd)}</div>`:''}
       </div>
@@ -447,7 +508,7 @@ function renderRight(){
   if(S.cargoIdx>=list.length) S.cargoIdx = Math.max(0,list.length-1);
   const curA = S.att[S.sel], curIt = curA ? ITEM(curA.id) : null, curM = curA && curA.t==='mod' ? curIt : null;
   const cats = TAB_ORDER.map(k=>{
-    const cnt = cargoItems(sock.size,k).reduce((a,m)=>a+S.cargo[m.id],0);
+    const cnt = k==='pylon' ? '∞' : cargoItems(sock.size,k).reduce((a,m)=>a+S.cargo[m.id],0);
     return `<div class="cat ${TAB_CLS[k]} ${k===S.tab?'act':''}" data-tab="${k}">${TAB_LABEL[k].toUpperCase()}<i>${cnt}</i></div>`;
   }).join('');
   const rows = list.map((m,i)=>{
@@ -466,15 +527,15 @@ function renderRight(){
       chips += `<span class="chip">${ico('power')}${m.power}${curM&&pd2?` <em class="${dcls('power',pd2)}">${sgn(pd2)}</em>`:''}</span>`;
     }
     const label = !fits ? 'NO POWER' : (curIt?'REPLACE':'EQUIP');
-    return `<div class="cg-row ${pyl?'pyl':KIND[m.kind].cls} ${focus?'sel':''} ${hov?'hov':''} ${fits?'':'nopow'}" data-item="${m.id}" data-i="${i}">
+    return `<div class="cg-row ${pyl?'pyl':KIND[m.kind].cls+' rar'} ${focus?'sel':''} ${hov?'hov':''} ${fits?'':'nopow'}" data-item="${m.id}" data-i="${i}"${pyl?'':` style="--rc:${rarCol(m)}"`}>
       <div class="ic">${ico(pyl?'pylon':m.kind)}</div>
-      <div class="mid"><div class="nm">${m.name}<small>×${S.cargo[m.id]}</small></div><div class="chips">${chips}</div></div>
+      <div class="mid"><div class="nm">${pyl?'':lvBadge(m)}${m.name}<small>${pyl?'∞':'×'+S.cargo[m.id]}</small></div><div class="chips">${chips}</div></div>
       <div class="act">${focus||hov?label:''}${focus?glyph('A'):''}</div>
     </div>`;
   }).join('') || `<div class="cg-empty">NO ${TAB_LABEL[S.tab].toUpperCase()} FOR A ${SIZE[sock.size].label} SOCKET IN CARGO<br><span style="font-size:15px">Try another tab, or craft / loot new parts</span></div>`;
 
   const cg = `<div class="cg">
-    <div class="head">CARGO<small>${ITEM_ORDER.reduce((a,id)=>a+(S.cargo[id]||0),0)} ITEMS</small></div>
+    <div class="head">CARGO<small>${Object.keys(MODS).reduce((a,id)=>a+(S.cargo[id]||0),0)} MODULES · PYLONS ∞</small></div>
     <div class="target"><span>TARGET · ${sg(sock.size,14)} <b>${SIZE[sock.size].label} SOCKET</b> · ${SIZE[sock.size].name.toUpperCase()}</span><span>${curIt?curIt.name.toUpperCase():'EMPTY'}</span></div>
     <div class="cats">${glyph('LT')}${cats}${glyph('RT')}</div>
     <div class="cg-list">${rows}</div>
@@ -502,16 +563,16 @@ function renderCard(){
         <div class="cf"><span>Select a cargo item to swap this pylon (attached parts return to cargo)</span><span>${glyph('A')}</span></div>`;
     }else{
       const rows = CARD_KEYS.filter(k=>mv(cur,k)).map(k=>`<tr><td>${ico(STAT_META[k].icon)}${STAT_META[k].label}</td><td>${fmt(mv(cur,k))}</td></tr>`).join('');
-      html = head(cur.name.toUpperCase()) + `<table><tr><th>STAT</th><th>INSTALLED</th></tr>${rows}</table>
+      html = head(`${lvBadge(cur)}${cur.name.toUpperCase()}`) + `<table><tr><th>STAT</th><th>INSTALLED</th></tr>${rows}</table>
         <div class="cf"><span>Select a cargo item to compare it against <b>${cur.name}</b></span><span>${glyph('A')}</span></div>`;
     }
   }else{
     const to = PV.to ? ITEM(PV.to) : null;
     const pylonCase = isPylon(PV.to||'') || (curA && curA.t==='pyl');
-    const over = PV.t1.power - MAX_POWER;
+    const over = PV.t1.power - BODY.maxPower;
     const title = to
-      ? `<span class="old">${cur?cur.name.toUpperCase():'EMPTY'}</span><span class="arrow">➜</span>${to.name.toUpperCase()}`
-      : `REMOVE <span class="old">${cur.name.toUpperCase()}</span>`;
+      ? `<span class="old">${cur?lvBadge(cur)+cur.name.toUpperCase():'EMPTY'}</span><span class="arrow">➜</span>${lvBadge(to)}${to.name.toUpperCase()}`
+      : `REMOVE <span class="old">${lvBadge(cur)}${cur.name.toUpperCase()}</span>`;
     let table = '';
     if(!pylonCase){
       const keys = CARD_KEYS.filter(k=>mv(cur,k)||mv(to,k));
@@ -535,8 +596,8 @@ function renderCard(){
     const back = PV.ret.filter((id,i)=>!(i===0 && !pylonCase));
     const backTxt = back.length && pylonCase ? `<div class="retline">Returns to cargo: ${PV.ret.map(id=>ITEM(id).name).join(', ')}</div>` : '';
     const foot = over>0
-      ? `<span>POWER <b>${T0.power}</b> ➜ <b class="no">${PV.t1.power} / ${MAX_POWER}</b></span><span class="no">NOT ENOUGH POWER (${over} OVER)</span>`
-      : `<span>POWER <b>${T0.power}</b> ➜ <b>${PV.t1.power} / ${MAX_POWER}</b></span><span class="ok">${to?(cur?'READY TO REPLACE':'READY TO EQUIP'):'GOES BACK TO CARGO'}</span>`;
+      ? `<span>POWER <b>${T0.power}</b> ➜ <b class="no">${PV.t1.power} / ${BODY.maxPower}</b></span><span class="no">NOT ENOUGH POWER (${over} OVER)</span>`
+      : `<span>POWER <b>${T0.power}</b> ➜ <b>${PV.t1.power} / ${BODY.maxPower}</b></span><span class="ok">${to?(cur?'READY TO REPLACE':'READY TO EQUIP'):'GOES BACK TO CARGO'}</span>`;
     html = head(title) + table + backTxt + `<div class="cf">${foot}</div>`;
   }
   $('#card').innerHTML = html;
@@ -549,7 +610,14 @@ function renderBottom(){
   const fits = cm ? (isPylon(cm.id) || wouldFit(S.sel, cm.id)) : true;
   const H = (g,label,attrs='',cls='')=>`<div class="hint ${cls}" ${attrs}>${g}<span>${label}</span></div>`;
   let left = '';
-  if(S.focus==='slots'){
+  if(S.picker){
+    left += H(glyph('dpad'),'Browse','data-act="none"');
+    left += H(glyph('A'),'Select body','data-act="a"');
+    left += H(glyph('B'),'Cancel','data-act="b"');
+  }else if(S.focus==='body'){
+    left += H(glyph('dpad'),'Change body','data-act="none"');
+    left += H(glyph('A'),'Body list','data-act="a"');
+  }else if(S.focus==='slots'){
     left += H(glyph('dpad'),'Select socket','data-act="none"');
     left += H(glyph('A'), curA?'Replace':'Choose part','data-act="a"');
     left += H(glyph('X'),'Unequip','data-act="x"', curA?'':'off');
@@ -558,8 +626,10 @@ function renderBottom(){
     left += H(glyph('A'), !cm ? 'Equip' : !fits ? 'Not enough power' : curA?'Replace':'Equip','data-act="a"', (!cm||!fits)?'off':'');
     left += H(glyph('B'),'Back','data-act="b"');
   }
-  left += H(glyph('LT')+glyph('RT'),'Category','data-act="cat"');
-  left += H(glyph('Y'),'Remove all','id="hAll" data-hold="all"','hold');
+  if(!S.picker && S.focus!=='body'){
+    left += H(glyph('LT')+glyph('RT'),'Category','data-act="cat"');
+    left += H(glyph('Y'),'Remove all','id="hAll" data-hold="all"','hold');
+  }
   left += H(glyph('RS'), d==='gamepad'?'Rotate':'Rotate / zoom','data-act="none"');
   const pref = { gamepad:'GAMEPAD', keyboard:'KEYBOARD', auto:'AUTO' }[S.inputPref];
   $('#bottom').innerHTML = `<div class="hints">${left}</div>
@@ -573,7 +643,7 @@ function renderAll(){
   LY = layout(S.att); T0 = calc(S.att);
   if(!LY.byId[S.sel]) S.sel = navOrder(LY)[0] || BODY.sockets[0].id;
   PV = computePreview();
-  renderLeft(); renderRight(); renderShip(); renderCard(); renderBottom();
+  renderLeft(); renderRight(); renderShip(); renderCard(); renderBottom(); renderPicker();
 }
 
 /* =====================================================================
@@ -590,7 +660,9 @@ function selectSlot(id){ S.sel = id; S.cargoIdx = 0; S.hoverCargo = null; LY = l
 function moveSel(dir){
   S.hoverCargo = S.hoverRemove = null;
   if(S.focus==='slots'){
-    const order = navOrder(LY), i = order.indexOf(S.sel), j = Math.max(0,Math.min(order.length-1,i+dir));
+    const order = navOrder(LY), i = order.indexOf(S.sel);
+    if(dir<0 && i<=0){ S.focus = 'body'; renderAll(); return; }
+    const j = Math.max(0,Math.min(order.length-1,i+dir));
     if(j!==i) selectSlot(order[j]);
   }else{
     const n = cargoList().length; if(!n) return;
@@ -605,7 +677,7 @@ function cycleCat(dir){
   S.cargoIdx = 0; S.hoverCargo = null; renderAll();
 }
 function equip(id, sid=S.sel){
-  const it = ITEM(id); if(!it || !(S.cargo[id]>0)) return;
+  const it = ITEM(id); if(!it || !(isPylon(id) || S.cargo[id]>0)) return;
   const pre = makePreview(sid,id);
   if(!pre.fits){ toast('NOT ENOUGH POWER','bad'); return; }
   const r = attachTo(S.att, S.cargo, sid, id);
@@ -628,12 +700,20 @@ function unequip(sid=S.sel){
 }
 function removeAll(){
   const n = Object.keys(S.att).length;
-  for(const k of Object.keys(S.att)) S.cargo[S.att[k].id] = (S.cargo[S.att[k].id]||0)+1;
+  for(const k of Object.keys(S.att)) if(!isPylon(S.att[k].id)) S.cargo[S.att[k].id] = (S.cargo[S.att[k].id]||0)+1;
   S.att = {}; S.focus = 'slots'; S.sel = BODY.sockets[0].id;
   toast(n?`${n} PARTS MOVED TO CARGO`:'NOTHING TO REMOVE','info'); renderAll();
 }
 function act(name){
   S.hoverCargo = S.hoverRemove = null;
+  if(S.picker){
+    ({ left:()=>pickMove(-1), right:()=>pickMove(1), up:()=>pickMove(-2), down:()=>pickMove(2), a:confirmPick, b:closePicker })[name]?.();
+    return;
+  }
+  if(S.focus==='body'){
+    ({ left:()=>stepBody(-1), right:()=>stepBody(1), down:()=>{ S.focus='slots'; renderAll(); }, a:openPicker })[name]?.();
+    return;
+  }
   switch(name){
     case 'up': moveSel(-1); break;
     case 'down': moveSel(1); break;
@@ -648,6 +728,58 @@ function act(name){
     case 'catNext': cycleCat(1); break;
     case 'catPrev': cycleCat(-1); break;
   }
+}
+
+/* ---------- main body selector ---------- */
+function switchBody(id){
+  if(!BODIES[id] || id===BODY.id) return;
+  S.builds[BODY.id] = S.att;                 // every body keeps its own build
+  BODY = BODIES[id]; S.att = S.builds[id] || {};
+  S.cargoIdx = 0; S.hoverCargo = S.hoverSlot = S.hoverRemove = null;
+  S.sel = navOrder(layout(S.att))[0];
+  Object.assign(S.rot, homeRot());
+  window.setShipBody?.();
+  toast(`${BODY.name} · ${BODY.tag}`,'info');
+  renderAll();
+}
+function stepBody(dir){ const i = BODY_LIST.indexOf(BODY.id); switchBody(BODY_LIST[(i+dir+BODY_LIST.length)%BODY_LIST.length]); }
+function openPicker(){ S.picker = true; S.pickIdx = BODY_LIST.indexOf(BODY.id); renderAll(); }
+function closePicker(){ S.picker = false; renderAll(); }
+function pickMove(d){ S.pickIdx = Math.max(0,Math.min(BODY_LIST.length-1,S.pickIdx+d)); renderAll(); }
+function confirmPick(){ const id = BODY_LIST[S.pickIdx]; S.picker = false; S.focus = 'slots'; if(id===BODY.id) renderAll(); else switchBody(id); }
+
+const bodyCounts = b => { const c = {1:0,2:0,3:0}; b.sockets.forEach(s => c[s.size]++); return c; };
+// top-view schematic of a body's sockets
+function schematic(b){
+  const ext = Math.max(...b.sockets.map(s => Math.max(Math.abs(s.pos[0]),Math.abs(s.pos[2]))), b.look?.r[0]||1, 2)*1.25;
+  const rx = b.look ? b.look.r[0] : ext*.5, rz = b.look ? b.look.r[2] : ext*.7;
+  const shapes = b.sockets.map(s => {
+    const r = ext*.075*(s.size===3?1.5:s.size===2?1.2:1), x = s.pos[0], y = -s.pos[2], c = SIZE[s.size].color;
+    return SIZE[s.size].shape==='tri' ? `<path d="M${x} ${y-r}L${x+r*.95} ${y+r*.7}L${x-r*.95} ${y+r*.7}Z" fill="${c}"/>`
+         : SIZE[s.size].shape==='sq'  ? `<rect x="${x-r*.8}" y="${y-r*.8}" width="${r*1.6}" height="${r*1.6}" fill="${c}"/>`
+         : `<circle cx="${x}" cy="${y}" r="${r*.9}" fill="${c}"/>`;
+  }).join('');
+  return `<svg class="schem" viewBox="${-ext} ${-ext} ${2*ext} ${2*ext}"><ellipse cx="0" cy="0" rx="${rx}" ry="${rz}" fill="#171b20" stroke="#3a3f46" stroke-width="${ext*.02}"/>${shapes}</svg>`;
+}
+function renderPicker(){
+  const el = $('#picker'); if(!el) return;
+  if(!S.picker){ el.classList.remove('show'); el.innerHTML = ''; return; }
+  const cards = BODY_LIST.map((id,i) => {
+    const b = BODIES[id], c = bodyCounts(b), mounted = Object.keys(id===BODY.id ? S.att : (S.builds[id]||{})).length;
+    return `<div class="bcard ${id===BODY.id?'cur':''} ${i===S.pickIdx?'sel':''}" data-bcard="${i}">
+      <div class="bc-head"><b>${b.name}</b><small>${b.tag}</small>${id===BODY.id?'<span class="bc-use">IN USE</span>':''}</div>
+      <div class="bc-mid">${schematic(b)}
+        <div class="bc-stats">
+          <div><span>POWER</span><b>${b.maxPower}</b></div>
+          <div><span>HULL</span><b>${fmt(b.base.hull)}</b></div>
+          <div><span>SHIELD</span><b>${fmt(b.base.shield)}</b></div>
+          <div><span>BASE VALUE</span><b>${fmt(b.base.value)}</b></div>
+        </div></div>
+      <div class="bc-foot"><span class="bc-cnt">${SIZE_ORDER.filter(n=>c[n]).map(n=>`${sg(n,16)}<b>×${c[n]}</b>`).join('')}</span><span class="bc-mnt">${mounted?`${mounted} parts mounted`:'empty build'}</span></div>
+    </div>`;
+  }).join('');
+  el.innerHTML = `<div class="pk-head">SELECT MAIN BODY<small>${BODY_LIST.length} AVAILABLE</small></div><div class="pk-grid">${cards}</div>`;
+  el.classList.add('show');
 }
 
 /* ---------- hold-to-confirm (leave / remove all) ---------- */
@@ -684,6 +816,9 @@ stage.addEventListener('pointermove',e=>{
   const hc = row?.dataset.item || null, hr = un?.dataset.unq || null;
   let hs = sl?.dataset.slot || null;
   if(!drag && e.target.closest?.('#shipbox')){ hs = pickSlot(e); setShipCursor(hs?'pointer':''); }
+  const bcd = e.target.closest?.('[data-bcard]');
+  if(S.picker && bcd && +bcd.dataset.bcard!==S.pickIdx){ S.pickIdx = +bcd.dataset.bcard; renderAll(); return; }
+  if(S.picker) return;
   if(hc!==S.hoverCargo || hs!==S.hoverSlot || hr!==S.hoverRemove){
     S.hoverCargo=hc; S.hoverSlot=hs; S.hoverRemove=hr; renderAll();
   }
@@ -694,6 +829,10 @@ stage.addEventListener('click',e=>{
   const t = e.target;
   if(t.closest('#leave-ov')){ $('#leave-ov').classList.remove('show'); return; }
   if(t.closest('#pill')){ S.inputPref = { gamepad:'keyboard', keyboard:'auto', auto:'gamepad' }[S.inputPref]; renderTop(); renderAll(); return; }
+  const bc = t.closest('[data-bcard]'); if(bc){ S.pickIdx = +bc.dataset.bcard; confirmPick(); return; }
+  if(S.picker){ if(!t.closest('#picker')) closePicker(); return; }
+  const bs = t.closest('[data-bstep]'); if(bs){ S.focus='body'; stepBody(+bs.dataset.bstep); return; }
+  if(t.closest('[data-bpick]')){ S.focus='body'; openPicker(); return; }
   const un = t.closest('[data-unq]'); if(un){ unequip(un.dataset.unq); return; }
   if(t.closest('#shipbox')){ const id = pickSlot(e); if(id){ selectSlot(id); S.focus='slots'; renderAll(); } return; }
   const sl = t.closest('[data-slot]'); if(sl){ selectSlot(sl.dataset.slot); S.focus='slots'; renderAll(); return; }
@@ -719,7 +858,7 @@ addEventListener('pointermove',e=>{
 });
 addEventListener('pointerup',()=>{ drag=null; setTimeout(()=>dragMoved=false,0); });
 $('#shipbox').addEventListener('wheel',e=>{ e.preventDefault(); S.rot.d=Math.max(8,Math.min(26,S.rot.d+e.deltaY*.01)); },{passive:false});
-$('#shipbox').addEventListener('dblclick',()=>{ Object.assign(S.rot,ROT0); });
+$('#shipbox').addEventListener('dblclick',()=>{ Object.assign(S.rot,homeRot()); });
 
 /* =====================================================================
    INPUT — keyboard
@@ -728,10 +867,11 @@ addEventListener('keydown',e=>{
   if(e.repeat && !['ArrowUp','ArrowDown','w','s'].includes(e.key)) return;
   if(S.inputPref==='auto' && S.device!=='keyboard'){ S.device='keyboard'; renderTop(); renderBottom(); }
   const k = e.key;
-  const map = { ArrowUp:'up', w:'up', ArrowDown:'down', s:'down', Enter:'a', ' ':'a', Backspace:'b', ArrowLeft:'left',
+  const map = { ArrowUp:'up', w:'up', ArrowDown:'down', s:'down', Enter:'a', ' ':'a', Backspace:'b', ArrowLeft:'left', ArrowRight:'right',
                 Delete:'x', x:'x', Tab: e.shiftKey?'catPrev':'catNext' };
   if(map[k]){ e.preventDefault(); act(map[k]); return; }
   if(k==='r'||k==='R'){ holdStart('all'); }
+  if(k==='Escape' && S.picker){ e.preventDefault(); closePicker(); return; }
   if(k==='Escape'){ e.preventDefault(); if($('#leave-ov').classList.contains('show')) $('#leave-ov').classList.remove('show'); else holdStart('leave'); }
 });
 addEventListener('keyup',e=>{
@@ -748,13 +888,13 @@ function pollPad(){
   if(pad){
     const b = i => !!pad.buttons[i]?.pressed;
     const now = performance.now();
-    const cur = { up:b(12)||pad.axes[1]<-.6, down:b(13)||pad.axes[1]>.6, left:b(14), a:b(0), b:b(1), x:b(2), y:b(3), lt:b(6), rt:b(7), lb:b(4), rb:b(5), start:b(9) };
+    const cur = { up:b(12)||pad.axes[1]<-.6, down:b(13)||pad.axes[1]>.6, left:b(14), right:b(15), a:b(0), b:b(1), x:b(2), y:b(3), lt:b(6), rt:b(7), lb:b(4), rb:b(5), start:b(9) };
     for(const k of Object.keys(cur)){
       const edge = cur[k] && !gpPrev[k];
       if(edge){
         gpRepeat[k] = now+380;
         if(S.inputPref==='auto' && S.device!=='gamepad'){ S.device='gamepad'; renderTop(); renderBottom(); }
-        ({ up:()=>act('up'), down:()=>act('down'), left:()=>act('left'), a:()=>act('a'), b:()=>act('b'), x:()=>act('x'),
+        ({ up:()=>act('up'), down:()=>act('down'), left:()=>act('left'), right:()=>act('right'), a:()=>act('a'), b:()=>act('b'), x:()=>act('x'),
            lt:()=>act('catPrev'), rt:()=>act('catNext'), y:()=>holdStart('all'), start:()=>holdStart('leave') })[k]?.();
       }else if(cur[k] && (k==='up'||k==='down') && now>gpRepeat[k]){ gpRepeat[k]=now+90; act(k); }
       if(!cur[k] && gpPrev[k]){ if(k==='y') holdEnd('all'); if(k==='start') holdEnd('leave'); }
@@ -776,6 +916,7 @@ function fit(){ const s=Math.min(innerWidth/1920,innerHeight/1080); S.scale=s; s
 addEventListener('resize',fit); fit();
 
 function boot(){
+  Object.assign(S.rot, homeRot());
   renderTop(); initShip(); renderAll(); requestAnimationFrame(pollPad);
   fetch('version.json',{cache:'no-store'}).then(r=>r.ok?r.json():Promise.reject()).then(v=>{
     $('#build').textContent = `BUILD v${v.version} · ${v.sha}`; $('#build').title = v.date;
