@@ -16,16 +16,17 @@
    Pylons, extensions, splits and modules are generated on top of those
    sockets, so the model only has to describe the bare main body.
    ===================================================================== */
-const SHIP_W = 920, SHIP_H = 530;
+let SHIP_W = 920, SHIP_H = 468;          // follows #shipbox (full stage in view mode)
 const TARGET = new THREE.Vector3(0, .5, -.3);
 
 const PYL_R = { 1:.07, 2:.11, 3:.17 };       // strut radius by socket size
 const MOD_SCALE = { 1:.55, 2:.85, 3:1.3 };   // module size by socket size
 const SPR_SIZE = { 1:.55, 2:.8, 3:1.1 };     // socket marker size
-const KIND_COL = { primary:0xe2685b, secondary:0xd8b25a, engine:0x3d8ff0 };
+const MOD_COL = 0x8f98a3;                     // one metal for every module: the type is told by the shape
+const OUTLINE = { sel:0xf4623a, hov:0xe9edf0 };
 const MOD_R = { 1:.3, 2:.45, 3:.7 };          // rough module radius, to place the size badge beside it
 
-const V = { ready:false, cur:{ yaw:.75, pitch:.34, d:13.2 }, tex:{}, raycaster:new THREE.Raycaster(), tmp:new THREE.Vector3(),
+const V = { ready:false, cur:{ yaw:.75, pitch:.34, d:13.2 }, pan:new THREE.Vector3(), panCur:new THREE.Vector3(), look:new THREE.Vector3(), tex:{}, raycaster:new THREE.Raycaster(), tmp:new THREE.Vector3(),
             pickers:[], anchor:{}, spr:{}, modG:{}, flames:[], customN:0 };
 
 /* ---------- helpers ---------- */
@@ -92,7 +93,7 @@ function buildHull(body){
 /* ---------- modules ---------- */
 function buildModule(kind, size, style){
   const g = new THREE.Group();
-  const tint = style==='good' ? 0x2f9e4d : style==='bad' ? 0xc23a3a : style==='rem' ? 0x5a3030 : KIND_COL[kind];
+  const tint = style==='good' ? 0x2f9e4d : style==='bad' ? 0xc23a3a : style==='rem' ? 0x5a3030 : MOD_COL;
   const lit = style!=='normal';
   const m = stdMat(tint,.4,.4, lit ? { emissive:tint, emissiveIntensity:.45 } : {});
   const dark = stdMat(0x1b1f24,.4,.5);
@@ -108,14 +109,31 @@ function buildModule(kind, size, style){
     const body = cyl(.36,.4,.8,m); body.position.z = -.1; g.add(body);
     const noz = cyl(.42,.3,.22,dark); noz.position.z = .4; g.add(noz);
     const glowCol = style==='normal' ? 0x9fd4ff : tint;
-    const glow = new THREE.Mesh(new THREE.CircleGeometry(.27,20), new THREE.MeshBasicMaterial({ color:glowCol })); glow.position.z = .52; g.add(glow);
+    const glow = new THREE.Mesh(new THREE.CircleGeometry(.27,20), new THREE.MeshBasicMaterial({ color:glowCol })); glow.position.z = .52; glow.userData.noOutline = true; g.add(glow);
     const flame = new THREE.Mesh(new THREE.ConeGeometry(.24,1.1,16), new THREE.MeshBasicMaterial({ color: style==='normal' ? 0x5fb0ff : tint }));
-    flame.rotation.x = Math.PI/2; flame.position.z = 1.08; g.add(flame); V.flames.push(flame);
+    flame.rotation.x = Math.PI/2; flame.position.z = 1.08; flame.userData.noOutline = true; g.add(flame); V.flames.push(flame);
   }
   g.scale.setScalar(MOD_SCALE[size]);
   // weapons fire forward, engines exhaust backward — whatever the socket direction
   if(kind==='engine') g.rotation.y = Math.PI;
   return g;
+}
+
+/* ---------- outline (selected / hovered part) ----------
+   inverted hull: every mesh gets a back-face twin pushed out along its normals */
+const outlineMats = {};
+function outlineMat(color, thick){
+  const key = color+'_'+thick;
+  return outlineMats[key] || (outlineMats[key] = new THREE.ShaderMaterial({
+    uniforms:{ color:{ value:new THREE.Color(color) }, thick:{ value:thick } },
+    vertexShader:'uniform float thick; void main(){ gl_Position = projectionMatrix * modelViewMatrix * vec4(position + normal*thick, 1.0); }',
+    fragmentShader:'uniform vec3 color; void main(){ gl_FragColor = vec4(color, 1.0); }',
+    side:THREE.BackSide,
+  }));
+}
+function addOutline(obj, color, thick){
+  const meshes = []; obj.traverse(o => { if(o.isMesh && !o.userData.noOutline && !o.userData.outline) meshes.push(o); });
+  for(const m of meshes){ const o = new THREE.Mesh(m.geometry, outlineMat(color, thick)); o.userData.outline = true; m.add(o); }
 }
 
 /* ---------- init ---------- */
@@ -166,10 +184,22 @@ function initShip(){
 }
 function resizeShip(){
   if(!V.ready) return;
+  const box = $('#shipbox');
+  SHIP_W = box.offsetWidth || SHIP_W; SHIP_H = box.offsetHeight || SHIP_H;
+  V.camera.aspect = SHIP_W/SHIP_H; V.camera.updateProjectionMatrix();
   V.renderer.setPixelRatio(Math.min(2.5, (devicePixelRatio||1) * (S.scale||1)));
   V.renderer.setSize(SHIP_W, SHIP_H, false);
 }
 window.resizeShip = resizeShip;
+// view-mode panning: moves the orbit target in the camera plane (dx,dy in stage pixels)
+function panShip(dx, dy){
+  if(!V.ready) return;
+  const c = V.camera, k = V.cur.d * .0011;
+  const right = new THREE.Vector3().setFromMatrixColumn(c.matrixWorld, 0), up = new THREE.Vector3().setFromMatrixColumn(c.matrixWorld, 1);
+  V.pan.addScaledVector(right, -dx*k).addScaledVector(up, dy*k).clampLength(0, 9);
+}
+window.panShip = panShip;
+window.resetPan = () => V.pan.set(0,0,0);
 function setShipCursor(c){ const cv = V.renderer?.domElement; if(cv) cv.style.cursor = c; }
 
 /* ---------- model loading ---------- */
@@ -211,7 +241,7 @@ function setHull(obj, name){
   found.sort((a,b) => b.size-a.size || a.n-b.n);
   const id = 'custom' + (++V.customN);
   const label = (name || id).split(/[\\/]/).pop().replace(/\.(glb|gltf)$/i,'').replace(/[_-]+/g,' ').toUpperCase();
-  BODIES[id] = { id, name:label, tag:'CUSTOM', maxPower:26, base:{ value:1500, hull:20000, shield:10000 },
+  BODIES[id] = { id, name:label, tag:'CUSTOM', value:1500, integrity:20000, shield:10000, generator:26, heatsink:40, boost:100,
     cam:13, plat:1.1, look:{ r:[size.x*k/2, size.y*k/2, size.z*k/2], color:0x777777 },
     sockets: found.map((f,i) => ({ id:'b'+i, size:f.size, pos:f.pos, dir:f.dir })), model3d:wrap };
   BODY_LIST.push(id);
@@ -249,36 +279,32 @@ function renderShip(){
     const a = att[s.id], st = styleOf(s.id);
     const an = new THREE.Object3D(); an.position.copy(v3(s.pos)); V.dyn.add(an); V.anchor[s.id] = an;
 
+    const sel = S.sel===s.id, hov = S.hoverSlot===s.id;
+    const oCol = !S.view && (sel ? OUTLINE.sel : hov ? OUTLINE.hov : null);
     if(s.pylon){                                   // struts
-      const mat = pylMat(st), r = PYL_R[s.size];
-      s.segs.forEach(([p,q]) => V.dyn.add(strut(p,q,r,mat)));
-      const base = new THREE.Mesh(new THREE.SphereGeometry(r*1.7,14,10), knob); base.position.copy(v3(s.pos)); V.dyn.add(base);
-      if(s.joint){ const j = new THREE.Mesh(new THREE.SphereGeometry(r*1.5,14,10), knob); j.position.copy(v3(s.joint)); V.dyn.add(j); }
+      const mat = pylMat(st), r = PYL_R[s.size], ag = new THREE.Group();
+      s.segs.forEach(([p,q]) => ag.add(strut(p,q,r,mat)));
+      const base = new THREE.Mesh(new THREE.SphereGeometry(r*1.7,14,10), knob); base.position.copy(v3(s.pos)); ag.add(base);
+      if(s.joint){ const j = new THREE.Mesh(new THREE.SphereGeometry(r*1.5,14,10), knob); j.position.copy(v3(s.joint)); ag.add(j); }
+      if(oCol!=null) addOutline(ag, oCol, .05);
+      V.dyn.add(ag);
     }
     if(a && a.t==='mod'){                          // module
       const it = ITEM(a.id), mg = buildModule(it.kind, s.size, st);
       mg.position.copy(v3(s.pos)); V.dyn.add(mg); V.modG[s.id] = mg;
+      if(oCol!=null) addOutline(mg, oCol, .07/MOD_SCALE[s.size]);
     }
 
-    // socket marker: triangle / square / circle in the size colour.
-    //  - free socket: dashed outline
-    //  - module mounted: small filled size badge beside the part (never over it)
-    //  - pylon mounted: none, except a wide ring while selected / hovered
-    const sel = S.sel===s.id, hov = S.hoverSlot===s.id;
+    // socket marker (free sockets only): dashed triangle / square / circle in the size colour.
+    // Mounted modules and arms get no marker: selection / hover outline the part itself.
     const occupied = !!a;
-    if(!occupied || sel || hov){
+    if(!S.view && !occupied){                        // no markers in view mode
       let col = SIZE[s.size].color, dashed = !a;
       if(ghost.has(s.id) && !occupied){ col = gstyle==='good' ? '#63e07a' : '#ff5a5a'; dashed = true; }
-      else if(sel || hov){ col = '#ffffff'; }
+      else if(sel){ col = '#f4623a'; } else if(hov){ col = '#ffffff'; }
       const sp = makeSprite(ringTexture(SIZE[s.size].shape, col, dashed));
       sp.position.copy(v3(s.pos)); sp.userData.base = SPR_SIZE[s.size] * (occupied ? 1.7 : 1);
       sp.scale.setScalar(sp.userData.base); V.dyn.add(sp); V.spr[s.id] = sp;
-    }
-    if(a && a.t==='mod'){
-      const bs = SPR_SIZE[s.size]*.42, off = MOD_R[s.size] + bs*.6;
-      const bd = makeSprite(ringTexture(SIZE[s.size].shape, SIZE[s.size].color, false, true));
-      bd.center.set(.5, .5 - off/bs);              // drawn above the part, in screen space
-      bd.position.copy(v3(s.pos)); bd.scale.setScalar(bs); V.dyn.add(bd);
     }
 
     const pick = new THREE.Mesh(new THREE.SphereGeometry(SPR_SIZE[s.size]*.6,10,8), new THREE.MeshBasicMaterial({ visible:false }));
@@ -291,7 +317,7 @@ function renderShip(){
     if(!s){ el.style.display='none'; el.dataset.slot=''; return; }
     const at = att[id], it = at ? ITEM(at.id) : null;
     el.dataset.slot = id;
-    el.innerHTML = `<small>${SIZE[s.size].label} SOCKET</small><b>${it ? lvBadge(it) + it.name.toUpperCase() : 'EMPTY'}</b>`;
+    el.innerHTML = `<small>${SIZE[s.size].label} SOCKET</small><b>${it ? rarDot(it) + it.name.toUpperCase() : 'EMPTY'}</b>`;
     el.style.display = 'block';
   };
   fill($('#tagSel'), S.sel);
@@ -312,9 +338,10 @@ function animateShip(now){
   requestAnimationFrame(animateShip);
   const t = now/1000, r = S.rot, c = V.cur;
   c.yaw += (r.yaw-c.yaw)*.14; c.pitch += (r.pitch-c.pitch)*.14; c.d += (r.d-c.d)*.14;
-  const cp = Math.cos(c.pitch);
-  V.camera.position.set(TARGET.x + Math.sin(c.yaw)*cp*c.d, TARGET.y + Math.sin(c.pitch)*c.d, TARGET.z + Math.cos(c.yaw)*cp*c.d);
-  V.camera.lookAt(TARGET);
+  V.panCur.lerp(V.pan, .18);
+  const cp = Math.cos(c.pitch), tg = V.look.copy(TARGET).add(V.panCur);
+  V.camera.position.set(tg.x + Math.sin(c.yaw)*cp*c.d, tg.y + Math.sin(c.pitch)*c.d, tg.z + Math.cos(c.yaw)*cp*c.d);
+  V.camera.lookAt(tg);
   V.shipRoot.position.y = Math.sin(t*.9)*.08;
 
   const flashT = S.flash ? (performance.now()-S.flashT)/900 : 2;

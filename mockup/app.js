@@ -1,17 +1,23 @@
 /* =====================================================================
-   CRAFTING MOCKUP — sockets / pylons / modules
+   CRAFTING MOCKUP — Body / Arms / modules
 
-   A MAIN BODY exposes sockets of three sizes:
+   UI wording: the hull is the BODY (plural Bodies), the pylons are ARMS.
+   (in code arms are still called "pylon" / 'pyl')
+
+   A BODY exposes sockets of three sizes:
      P1  red triangle    (smallest)
      P2  green square
      P3  blue circle     (largest)
 
    What a socket of size N accepts (same size only):
      - a MODULE of size N
-     - a PYLON of input size N
-         Extension  N > N            one output socket, same size
+     - an ARM of input size N
+         Extension  N > N            one output socket, same size (Body sockets only)
          Split      N > 2 x (N-1)    two smaller output sockets  (N >= 2)
-   Pylon outputs are sockets too, so pylons can be chained.
+   Arm outputs are sockets too, so arms can be chained.
+
+   Module types: Primary weapons (Gatling, Laser), Secondary weapons
+   (Rocket Launcher, S. Matter Shooter), Engines, Body.
    ===================================================================== */
 
 const SIZE = {
@@ -19,7 +25,10 @@ const SIZE = {
   2: { n:2, label:'P2', name:'Medium', color:'#4fd06a', shape:'sq'   },
   3: { n:3, label:'P3', name:'Large',  color:'#3aa0ff', shape:'circ' },
 };
-const SIZE_ORDER = [3,2,1];
+const SIZE_ORDER = [1,2,3];   // small sockets first, large at the bottom
+
+// app version: bumped on every commit (the CI build number is shown next to it)
+const APP_VERSION = '0.4.0';
 
 const KIND = {
   primary:   { cls:'pri', label:'Primary Weapons',   short:'Primary' },
@@ -27,7 +36,7 @@ const KIND = {
   engine:    { cls:'eng', label:'Engines',           short:'Engines' },
 };
 const TAB_ORDER = ['pylon','primary','secondary','engine'];
-const TAB_LABEL = { pylon:'Pylons', primary:'Primary', secondary:'Secondary', engine:'Engines' };
+const TAB_LABEL = { pylon:'Arms', primary:'Primary', secondary:'Secondary', engine:'Engines' };
 const TAB_CLS   = { pylon:'pyl', primary:'pri', secondary:'sec', engine:'eng' };
 
 // module rarity: lv 1..7, each with its colour
@@ -41,53 +50,76 @@ const RARITY = {
   7: { label:'LV7', color:'#ffcf3a' },   // gold
 };
 const rarCol = it => RARITY[it?.lv]?.color || '';
-const lvBadge = it => it?.lv ? `<span class="lv" style="--rc:${rarCol(it)}">${RARITY[it.lv].label}</span>` : '';
+// rarity is shown by colour only: row tint, icon stripe, or this small swatch
+const rarDot = it => it?.lv ? `<span class="rdot" style="--rc:${rarCol(it)}"></span>` : '';
 
-// kin/exp/nrg = damage types, eng = thrust, lv = rarity
-const MODS = {
-  // ---- primary weapons
-  peashot:  { id:'peashot',  name:'Peashot',        kind:'primary',   size:1, lv:1, power:1, value:160,  kin:4 },
-  flicker:  { id:'flicker',  name:'Flicker Beam',   kind:'primary',   size:1, lv:2, power:1, value:210,  nrg:6 },
-  kb:       { id:'kb',       name:'K&B Gun',        kind:'primary',   size:2, lv:2, power:2, value:380,  kin:9 },
-  scatter:  { id:'scatter',  name:'Ion Scatter',    kind:'primary',   size:2, lv:4, power:3, value:820,  kin:4, nrg:12 },
-  pulse:    { id:'pulse',    name:'Pulse Lance',    kind:'primary',   size:2, lv:5, power:4, value:1150, nrg:22 },
-  rail:     { id:'rail',     name:'Rail Driver',    kind:'primary',   size:3, lv:6, power:6, value:2300, kin:34 },
-  halberd:  { id:'halberd',  name:'Halberd Cannon', kind:'primary',   size:3, lv:7, power:7, value:2900, kin:20, nrg:20 },
-  // ---- secondary weapons
-  dart:     { id:'dart',     name:'Dart Pod',       kind:'secondary', size:1, lv:3, power:2, value:300,  exp:40 },
-  sho:      { id:'sho',      name:'SHO-Gun',        kind:'secondary', size:2, lv:3, power:3, value:640,  exp:105 },
-  seeker:   { id:'seeker',   name:'Seeker Pod',     kind:'secondary', size:2, lv:5, power:5, value:1400, exp:160 },
-  mortar:   { id:'mortar',   name:'Arc Mortar',     kind:'secondary', size:3, lv:6, power:7, value:2100, exp:90, nrg:60 },
-  siege:    { id:'siege',    name:'Siege Launcher', kind:'secondary', size:3, lv:7, power:9, value:3400, exp:300 },
-  // ---- engines
-  trickle:  { id:'trickle',  name:'Trickle Jet',    kind:'engine',    size:1, lv:1, power:1, value:140,  eng:14 },
-  speeder:  { id:'speeder',  name:'Speeder',        kind:'engine',    size:2, lv:2, power:1, value:352,  eng:41 },
-  ion:      { id:'ion',      name:'Ion Drive',      kind:'engine',    size:2, lv:4, power:2, value:900,  eng:68 },
-  bulwark:  { id:'bulwark',  name:'Bulwark Drive',  kind:'engine',    size:2, lv:3, power:2, value:760,  eng:30, hull:1500 },
-  aegis:    { id:'aegis',    name:'Aegis Thruster', kind:'engine',    size:2, lv:4, power:2, value:820,  eng:35, shield:2000 },
-  behemoth: { id:'behemoth', name:'Behemoth Drive', kind:'engine',    size:3, lv:5, power:4, value:2600, eng:120 },
-  bastion:  { id:'bastion',  name:'Bastion Drive',  kind:'engine',    size:3, lv:6, power:4, value:2800, eng:70, hull:4000, shield:3000 },
+// WEAPON params:  ammo type, power consumption, heat generation (primary only),
+//                 ammo magazine size (secondary only: primaries have infinite ammo),
+//                 dps, damage, fire rate (shots/s), accuracy (%)
+// ENGINE params:  power consumption, base speed increment, boost charge consumption
+// lv = rarity. `fam` = weapon family
+const FAMILY = {
+  gatling: { label:'Gatling',           ammo:'Kinetic' },
+  laser:   { label:'Laser',             ammo:'Energy' },
+  rocket:  { label:'Rocket Launcher',   ammo:'Explosive' },
+  smatter: { label:'S. Matter Shooter', ammo:'Sonic Matter' },
+  engine:  { label:'Engine' },
 };
-// pylons: `size` is the input socket size. Pylons are unlimited: no cargo quantity
+// value (credits) grows with socket size and rarity
+const RAR_MULT = [1, 1.5, 2.2, 3.2, 4.6, 6.5, 9];
+const worth = (size, lv) => Math.round(size*140*RAR_MULT[lv-1]/10)*10;
+const W = (id,name,kind,fam,size,lv,o) => ({ id, name, kind, fam, size, lv, ammo:FAMILY[fam].ammo, ...o, dps:Math.round(o.dmg*o.rate), value:worth(size,lv) });
+const E = (id,name,size,lv,o) => ({ id, name, kind:'engine', fam:'engine', size, lv, ...o, value:worth(size,lv) });
+const MODS = Object.fromEntries([
+  // ---- primary weapons (infinite ammo, generate heat)
+  W('gatBuzz',   'Buzz Gatling',      'primary','gatling',1,1,{ power:1, heat:4,  dmg:6,   rate:8,   acc:62 }),
+  W('gatHornet', 'Hornet Gatling',    'primary','gatling',1,3,{ power:1, heat:5,  dmg:8,   rate:9,   acc:66 }),
+  W('gatWarden', 'Warden Gatling',    'primary','gatling',2,2,{ power:2, heat:8,  dmg:11,  rate:9,   acc:64 }),
+  W('gatReaper', 'Reaper Gatling',    'primary','gatling',2,5,{ power:3, heat:10, dmg:14,  rate:11,  acc:70 }),
+  W('gatTitan',  'Titan Gatling',     'primary','gatling',3,4,{ power:5, heat:15, dmg:22,  rate:10,  acc:65 }),
+  W('gatMael',   'Maelstrom Gatling', 'primary','gatling',3,7,{ power:6, heat:18, dmg:28,  rate:12,  acc:72 }),
+  W('lasSpark',  'Spark Laser',       'primary','laser',  1,2,{ power:2, heat:6,  dmg:30,  rate:2,   acc:90 }),
+  W('lasLance',  'Lance Laser',       'primary','laser',  2,3,{ power:3, heat:12, dmg:55,  rate:2,   acc:92 }),
+  W('lasPrism',  'Prism Laser',       'primary','laser',  2,6,{ power:4, heat:14, dmg:80,  rate:2.2, acc:95 }),
+  W('lasSun',    'Sunspear Laser',    'primary','laser',  3,5,{ power:6, heat:22, dmg:140, rate:1.8, acc:94 }),
+  // ---- secondary weapons (magazine, no heat)
+  W('rktDart',   'Dart Rocket Launcher',  'secondary','rocket', 1,1,{ power:2, mag:8,  dmg:60,  rate:1,   acc:75 }),
+  W('rktHydra',  'Hydra Rocket Launcher', 'secondary','rocket', 2,4,{ power:3, mag:12, dmg:90,  rate:1.4, acc:78 }),
+  W('rktSiege',  'Siege Rocket Launcher', 'secondary','rocket', 3,6,{ power:5, mag:16, dmg:180, rate:1.2, acc:80 }),
+  W('smtMote',   'Mote S. Matter Shooter','secondary','smatter',1,2,{ power:2, mag:4,  dmg:120, rate:.5,  acc:85 }),
+  W('smtWisp',   'Wisp S. Matter Shooter','secondary','smatter',2,3,{ power:4, mag:6,  dmg:200, rate:.6,  acc:88 }),
+  W('smtVoid',   'Void S. Matter Shooter','secondary','smatter',3,7,{ power:7, mag:8,  dmg:420, rate:.6,  acc:90 }),
+  // ---- engines
+  E('engTrickle', 'Trickle Engine',  1,1,{ power:1, speed:14,  boostUse:6 }),
+  E('engDash',    'Dash Engine',     1,3,{ power:1, speed:24,  boostUse:9 }),    // faster, thirstier boost
+  E('engGlide',   'Glide Engine',    1,5,{ power:2, speed:34,  boostUse:3 }),    // fastest P1, frugal boost, more power
+  E('engSpeeder', 'Speeder Engine',  2,2,{ power:1, speed:40,  boostUse:10 }),
+  E('engIon',     'Ion Engine',      2,4,{ power:2, speed:62,  boostUse:9 }),
+  E('engSurge',   'Surge Engine',    2,5,{ power:2, speed:55,  boostUse:5 }),
+  E('engBehemoth','Behemoth Engine', 3,3,{ power:3, speed:95,  boostUse:16 }),
+  E('engNova',    'Nova Engine',     3,6,{ power:4, speed:130, boostUse:12 }),
+].map(m => [m.id, m]));
+// ARMS (code: pylons): `size` is the input socket size. Arms are unlimited: no cargo quantity
 const PYLONS = {
-  ext1:   { id:'ext1',   name:'Extension P1',    type:'ext',   size:1, value:120 },
-  ext2:   { id:'ext2',   name:'Extension P2',    type:'ext',   size:2, value:220 },
-  ext3:   { id:'ext3',   name:'Extension P3',    type:'ext',   size:3, value:380 },
-  split2: { id:'split2', name:'Split P2 › 2×P1', type:'split', size:2, value:420 },
-  split3: { id:'split3', name:'Split P3 › 2×P2', type:'split', size:3, value:760 },
+  ext1:   { id:'ext1',   name:'Extension Arm P1',    type:'ext',   size:1 },
+  ext2:   { id:'ext2',   name:'Extension Arm P2',    type:'ext',   size:2 },
+  ext3:   { id:'ext3',   name:'Extension Arm P3',    type:'ext',   size:3 },
+  split2: { id:'split2', name:'Split Arm P2 › 2×P1', type:'split', size:2 },
+  split3: { id:'split3', name:'Split Arm P3 › 2×P2', type:'split', size:3 },
 };
 const ITEMS = { ...PYLONS, ...MODS };
 const ITEM_ORDER = Object.keys(ITEMS);
 const isPylon = id => !!PYLONS[id];
 const outputsOf = P => P.type==='ext' ? [P.size] : [P.size-1, P.size-1];
 
-// MAIN BODIES. Each one defines its sockets (position + outward direction, model space),
+// BODIES. Params: integrity, shield power, generator power, heatsink power, boost charge, sockets.
+// Each one defines its sockets (position + outward direction, model space),
 // its power budget, its base stats and a 3D look.
 // Rules: no sockets on the rear of the hull; sockets keep clear of each other in front view.
 // A .glb dropped on the scene becomes a new body built from its sock_p<size>_<n> nodes.
 const BODIES = {
   zephyros: {
-    id:'zephyros', name:'ZEPHYROS', tag:'MIXED', maxPower:26, base:{ value:1900, hull:22000, shield:14000 },
+    id:'zephyros', name:'ZEPHYROS', value:1900, tag:'MIXED', integrity:22000, shield:14000, generator:26, heatsink:40, boost:100,
     cam:13.6, plat:1,
     look:{ r:[1.5,1.1,2.9], color:0xb98a3e },
     sockets:[
@@ -103,7 +135,7 @@ const BODIES = {
   },
   // light scout: four small sockets only
   needle: {
-    id:'needle', name:'NEEDLE', tag:'LIGHT', maxPower:12, base:{ value:800, hull:9000, shield:6000 },
+    id:'needle', name:'NEEDLE', value:800, tag:'LIGHT', integrity:9000, shield:6000, generator:12, heatsink:20, boost:140,
     cam:8.6, plat:.8,
     look:{ r:[.8,.6,2.6], color:0x8fa6b8 },
     sockets:[
@@ -115,7 +147,7 @@ const BODIES = {
   },
   // heavy hauler: six large sockets
   colossus: {
-    id:'colossus', name:'COLOSSUS', tag:'HEAVY', maxPower:40, base:{ value:4200, hull:42000, shield:30000 },
+    id:'colossus', name:'COLOSSUS', value:4200, tag:'HEAVY', integrity:42000, shield:30000, generator:40, heatsink:60, boost:70,
     cam:16.5, plat:1.3,
     look:{ r:[2.3,1.7,3.6], color:0x8a4a3a },
     sockets:[
@@ -129,7 +161,7 @@ const BODIES = {
   },
   // mixed gunship: one big dorsal socket, two medium flanks, two small at the nose
   kestrel: {
-    id:'kestrel', name:'KESTREL', tag:'MIXED', maxPower:20, base:{ value:1500, hull:15000, shield:12000 },
+    id:'kestrel', name:'KESTREL', value:1500, tag:'MIXED', integrity:15000, shield:12000, generator:20, heatsink:32, boost:110,
     cam:13.8, plat:.95,
     look:{ r:[1.3,.9,2.6], color:0x6c8a62 },
     sockets:[
@@ -142,20 +174,27 @@ const BODIES = {
   },
 };
 const BODY_LIST = ['zephyros','needle','colossus','kestrel'];
+const BODIES_IN_GAME = 12;                                           // main bodies that exist in the game
+const unlockedBodies = () => BODY_LIST.filter(id => BODIES[id].tag!=='CUSTOM').length;
 let BODY = BODIES.zephyros;
 const M = id => ({ t:'mod', id }), P = id => ({ t:'pyl', id });
+
+// CARGO: fixed number of slots; identical modules stack up to STACK per slot
+const CARGO_SLOTS = 25, STACK = 14;
+const cargoSlots = C => Object.keys(MODS).reduce((a,id) => a + Math.ceil((C[id]||0)/STACK), 0);
 
 const S = {
   // socket id -> attachment. child sockets are '<parent>.<i>'
   att: {
-    b0:P('split3'), 'b0.0':M('kb'), 'b0.1':M('kb'),
+    b0:P('split3'), 'b0.0':M('gatWarden'), 'b0.1':M('gatWarden'),
     b1:P('ext3'),
-    b2:M('speeder'), b3:M('speeder'),
-    b4:P('split2'), 'b4.0':M('trickle'),
-    b5:M('dart'),
+    b2:M('engSpeeder'), b3:M('engSpeeder'),
+    b4:P('split2'), 'b4.0':M('lasSpark'),
+    b5:M('rktDart'),
   },
   builds: {},            // saved loadout of every body that is not the active one
-  cargo: Object.fromEntries(Object.keys(MODS).map(id => [id,16])),   // modules only (pylons are unlimited)
+  // modules only (arms are unlimited). A full stack of every module, counting the ones mounted above
+  cargo: Object.fromEntries(Object.keys(MODS).map(id => [id, STACK - ({ gatWarden:2, engSpeeder:2, lasSpark:1, rktDart:1 }[id]||0)])),
   sel: 'b0',
   tab: 'primary',
   focus: 'slots',        // 'slots' | 'cargo' | 'body'
@@ -195,6 +234,21 @@ const I = {
   pylon:     '<path d="M8 15V7M8 7L3 2M8 7l5-5" stroke="currentColor" stroke-width="2" fill="none"/><circle cx="8" cy="7" r="1.8" fill="currentColor"/>',
   sockets:   '<path d="M8 2l5 9H3zM2 14h5M9 14h5" stroke="currentColor" stroke-width="1.5" fill="none"/>',
   x:     '<path d="M3 3l10 10M13 3L3 13" stroke="currentColor" stroke-width="2.4" fill="none"/>',
+  // module families
+  gatling: '<rect x="1" y="4.5" width="4.5" height="7" rx="1"/><path d="M5.5 5.5h9M5.5 8h9M5.5 10.5h9" stroke="currentColor" stroke-width="1.5"/><path d="M14.5 4.5v7" stroke="currentColor" stroke-width="1.2"/>',
+  laser:   '<path d="M1 5h5l2.5 3L6 11H1z"/><path d="M8.5 8H15" stroke="currentColor" stroke-width="2.2"/><path d="M11 5l1.2 1.4M11 11l1.2-1.4M14 4.5l-.8 1.5M14 11.5l-.8-1.5" stroke="currentColor" stroke-width="1.1"/>',
+  rocket:  '<path d="M14.5 1.5c-4.2.2-7 2.3-8.8 6.2l2.6 2.6c3.9-1.8 6-4.6 6.2-8.8z"/><path d="M5.7 7.7L2.2 8.5l1.6-2.8 3.3-.8zM8.3 10.3l-.8 3.5 2.8-1.6.8-3.3z"/><path d="M4.6 11.4L1.5 14.5" stroke="currentColor" stroke-width="1.6"/><circle cx="10.6" cy="5.4" r="1.2" fill="#000" fill-opacity=".45"/>',
+  smatter: '<circle cx="8" cy="8" r="2.6"/><circle cx="8.00" cy="2.40" r="1.25"/><circle cx="12.38" cy="4.51" r="1.25"/><circle cx="13.46" cy="9.25" r="1.25"/><circle cx="10.43" cy="13.05" r="1.25"/><circle cx="5.57" cy="13.05" r="1.25"/><circle cx="2.54" cy="9.25" r="1.25"/><circle cx="3.62" cy="4.51" r="1.25"/>',
+  engine:  '<rect x="5.5" y="1" width="5" height="3"/><path d="M6.2 4.5h3.6l2.8 5H3.4z"/><path d="M4.5 10.5h7L8 15.5z" fill-opacity=".7"/><path d="M6.5 10.5h3L8 13.5z" fill="#fff" fill-opacity=".6"/>',
+  heat:  '<path d="M8 1c1 3 5 5 5 9a5 5 0 0 1-10 0c0-2 1-3 2-4 0 2 1 3 2 3 0-3-1-5 1-8z"/>',
+  dps:   '<circle cx="8" cy="8" r="5.5" fill="none" stroke="currentColor" stroke-width="1.6"/><path d="M8 1v4M8 11v4M1 8h4M11 8h4" stroke="currentColor" stroke-width="1.6"/>',
+  dmg:   '<path d="M8 1l1.8 4.2L14 4l-2.2 4L15 11l-4.4-.4L8 15l-1.6-4.4L2 11l3.2-3L2 4l4.2 1.2z"/>',
+  rate:  '<path d="M2 4h8M2 8h11M2 12h8" stroke="currentColor" stroke-width="2" fill="none"/>',
+  acc:   '<circle cx="8" cy="8" r="6" fill="none" stroke="currentColor" stroke-width="1.4"/><circle cx="8" cy="8" r="3" fill="none" stroke="currentColor" stroke-width="1.4"/><circle cx="8" cy="8" r="1"/>',
+  ammo:  '<path d="M6 15V7c0-3 2-6 2-6s2 3 2 6v8z"/>',
+  mag:   '<path d="M3 2h10v3H3zM3 6.5h10v3H3zM3 11h10v3H3z"/>',
+  speed: '<path d="M2 3l5 5-5 5M8 3l5 5-5 5" stroke="currentColor" stroke-width="2" fill="none"/>',
+  boost: '<path d="M8 1l5 7h-3v7H6V8H3z"/>',
 };
 const ico = (n,cls='') => `<svg class="${cls}" viewBox="0 0 16 16" fill="currentColor">${I[n]}</svg>`;
 
@@ -207,15 +261,31 @@ function sg(n, px=14, mode='solid'){
 const outGlyphs = p => `<span class="outs">${outputsOf(p).map(n=>sg(n,13)).join('')}</span>`;
 
 const STAT_META = {
-  power:  { label:'Power cost',    icon:'power',  better:'low' },
-  kin:    { label:'Kinetic dmg',   icon:'kin',    better:'high' },
-  exp:    { label:'Explosive dmg', icon:'exp',    better:'high' },
-  nrg:    { label:'Energy dmg',    icon:'nrg',    better:'high' },
-  eng:    { label:'Engine thrust', icon:'eng',    better:'high' },
-  hull:   { label:'Hull',          icon:'hull',   better:'high' },
-  shield: { label:'Shield',        icon:'shield', better:'high' },
-  value:  { label:'Value',         icon:'value',  better:'neutral' },
+  // modules
+  ammo:     { label:'Ammo Type',                icon:'ammo',   better:'neutral', text:true },
+  power:    { label:'Power Consumption',        icon:'power',  better:'low' },
+  heat:     { label:'Heat Generation',          icon:'heat',   better:'low',  unit:'/s' },
+  mag:      { label:'Ammo Magazine Size',       icon:'mag',    better:'high' },
+  dps:      { label:'DPS',                      icon:'dps',    better:'high' },
+  dmg:      { label:'Damage',                   icon:'dmg',    better:'high' },
+  rate:     { label:'Fire Rate',                icon:'rate',   better:'high', unit:'/s', dec:1 },
+  acc:      { label:'Accuracy',                 icon:'acc',    better:'high', unit:'%' },
+  speed:    { label:'Base Speed Increment',     icon:'speed',  better:'high', unit:' m/s' },
+  boostUse: { label:'Boost Charge Consumption', icon:'boost',  better:'low',  unit:'/s' },
+  // ship totals
+  priDps:   { label:'Primary DPS',              icon:'dps',    better:'high' },
+  secDps:   { label:'Secondary DPS',            icon:'dps',    better:'high' },
+  maxSpeed: { label:'Max Speed',                icon:'speed',  better:'high', unit:' m/s' },
+  boostTime:{ label:'Boost Duration',           icon:'boost',  better:'high', unit:'s', dec:1 },
 };
+const MOD_KEYS = { primary:['ammo','power','heat','dps','dmg','rate','acc'],
+                   secondary:['ammo','power','mag','dps','dmg','rate','acc'],
+                   engine:['power','speed','boostUse'] };
+const KEY_ORDER = ['ammo','power','heat','mag','dps','dmg','rate','acc','speed','boostUse'];
+const modKeys = (...its) => KEY_ORDER.filter(k => its.some(it => it && MOD_KEYS[it.kind]?.includes(k)));
+const fmtStat = (k,v) => { const m = STAT_META[k]; if(m?.text) return v||'—';
+  return (m?.dec && v%1 ? v.toFixed(m.dec) : fmt(v)) + (m?.unit||''); };
+const sgnStat = (k,d) => { const m = STAT_META[k]; return (d>0?'+':'−') + (m?.dec && d%1 ? Math.abs(d).toFixed(m.dec) : fmt(Math.abs(d))); };
 function dcls(k,d){
   if(!d) return 'nt';
   const b = STAT_META[k]?.better;
@@ -307,19 +377,20 @@ function navOrder(L){
 /* ---------- loadout maths ---------- */
 function calc(att){
   const L = layout(att);
-  const t = { power:0, value:BODY.base.value, eng:0, hull:BODY.base.hull, shield:BODY.base.shield,
-              pri:{kin:0,exp:0,nrg:0}, sec:{kin:0,exp:0,nrg:0},
+  const t = { power:0, heat:0, speed:0, boostUse:0, priDps:0, secDps:0, value:BODY.value||0,
               sock:{1:{free:0,total:0},2:{free:0,total:0},3:{free:0,total:0}} };
   for(const s of L.list){
     t.sock[s.size].total++;
     const a = att[s.id];
     if(!a){ t.sock[s.size].free++; continue; }
-    const it = ITEM(a.id); t.value += it.value;
     if(a.t!=='mod') continue;
-    t.power += it.power; t.eng += mv(it,'eng'); t.hull += mv(it,'hull'); t.shield += mv(it,'shield');
-    const tgt = it.kind==='primary' ? t.pri : it.kind==='secondary' ? t.sec : null;
-    if(tgt){ tgt.kin+=mv(it,'kin'); tgt.exp+=mv(it,'exp'); tgt.nrg+=mv(it,'nrg'); }
+    const it = ITEM(a.id);
+    t.power += it.power; t.value += it.value; t.heat += mv(it,'heat'); t.speed += mv(it,'speed'); t.boostUse += mv(it,'boostUse');
+    if(it.kind==='primary') t.priDps += it.dps;
+    if(it.kind==='secondary') t.secDps += it.dps;
   }
+  t.maxSpeed = t.speed;                                        // Body has no base speed: engines add it all
+  t.boostTime = t.boostUse ? BODY.boost / t.boostUse : 0;     // seconds of boost from a full charge
   return t;
 }
 // put `item` (or nothing) on a socket; whatever hung there goes back to cargo
@@ -331,14 +402,16 @@ function attachTo(att, cargo, sid, item){
 }
 function makePreview(sid, to){
   const r = attachTo(S.att, S.cargo, sid, to), t1 = calc(r.att);
-  return { sid, to, att:r.att, ret:r.ret, t1, fits:t1.power <= BODY.maxPower };
+  return { sid, to, att:r.att, ret:r.ret, t1, fits:t1.power <= BODY.generator, room:cargoSlots(r.cargo) <= CARGO_SLOTS };
 }
 
 let LY = layout(S.att), T0 = calc(S.att), PV = null;
 
 const selSock = () => LY.byId[S.sel];
+// an extension arm only goes on a Body socket: on an arm output it would allow endless arm chains
+const canMount = (id, sock) => !(PYLONS[id]?.type==='ext' && sock?.parent);
 function cargoItems(size = selSock().size, tab = S.tab){
-  return ITEM_ORDER.filter(id => (isPylon(id) || (S.cargo[id]||0)>0) && ITEMS[id].size===size &&
+  return ITEM_ORDER.filter(id => (isPylon(id) || (S.cargo[id]||0)>0) && ITEMS[id].size===size && canMount(id, selSock()) &&
     (tab==='pylon' ? isPylon(id) : (!isPylon(id) && ITEMS[id].kind===tab))).map(id => ITEMS[id]);
 }
 const cargoList = () => cargoItems();
@@ -353,7 +426,8 @@ function computePreview(){
   const id = S.hoverCargo ?? (S.focus==='cargo' ? list[S.cargoIdx]?.id : null);
   return id ? makePreview(S.sel, id) : null;
 }
-const wouldFit = (sid, id) => calc(attachTo(S.att, S.cargo, sid, id).att).power <= BODY.maxPower;
+const hasRoom = (sid, id) => cargoSlots(attachTo(S.att, S.cargo, sid, id).cargo) <= CARGO_SLOTS;
+const wouldFit = (sid, id) => calc(attachTo(S.att, S.cargo, sid, id).att).power <= BODY.generator;
 
 /* =====================================================================
    GLYPHS (gamepad / keyboard)
@@ -373,9 +447,11 @@ function glyph(n){
       case 'RB': return '<i class="gp pill">RB</i>';
       case 'RS': return '<i class="gp rs">R</i>';
       case 'START': return '<i class="gp pill">≡</i>';
+      case 'VIEW': return '<i class="gp pill">⧉</i>';
+      case 'LS': return '<i class="gp rs">L</i>';
     }
   }else{
-    const k = { A:'Enter', B:'Bksp', X:'Del', Y:'R', dpad:'↑ ↓', LT:'⇧ Tab', RT:'Tab', LB:'Q', RB:'E', RS:'Drag', START:'Esc' }[n];
+    const k = { A:'Enter', B:'Bksp', X:'Del', Y:'R', dpad:'↑ ↓', LT:'⇧ Tab', RT:'Tab', LB:'Q', RB:'E', RS:'Drag', START:'Esc', VIEW:'V', LS:'R-Drag' }[n];
     return `<i class="key">${k}</i>`;
   }
 }
@@ -410,18 +486,15 @@ function leftRow(s, up=1){
   const cls = ['slot', kcls, isSel?'sel':'', isSel&&S.focus==='slots'?'focus':'', S.hoverSlot===s.id?'hov':'', S.flash===s.id?'flash':'',
                s.depth?'child':'',
                PV&&PV.sid===s.id ? (PV.to?'pv-add':'pv-rem') : ''].join(' ');
-  const icon = !it ? sg(s.size,20,'dash') : ico(a.t==='pyl' ? 'pylon' : it.kind);
-  const name = it ? it.name : `Empty ${SIZE[s.size].label} socket`;
-  const right = !it ? '' : a.t==='mod'
-    ? `<div class="pwr">${ico('power')}${it.power}</div>`
-    : outGlyphs(it);
+  const icon = !it ? sg(s.size,20,'dash') : ico(a.t==='pyl' ? 'pylon' : it.fam);
+  const name = it ? it.name : '';
+  const right = it && a.t==='pyl' ? outGlyphs(it) : '';
   const rc = it && a.t==='mod' ? rarCol(it) : '';
   return `<div class="${cls}${rc?' rar':''}" data-slot="${s.id}" style="--d:${s.depth};--up:${up}${rc?`;--rc:${rc}`:''}">
     <div class="ic">${icon}</div>
     <div class="nm">${name}</div>
-    ${it && a.t==='mod' ? lvBadge(it) : ''}
     ${it && a.t==='mod' ? sg(s.size,12) : ''}${right}
-    ${isSel&&S.focus==='slots'?`<span class="kh">${glyph('A')}</span>`:''}
+    ${isSel?`<span class="kh" style="${S.focus==='slots'?'':'visibility:hidden'}">${glyph('A')}</span>`:''}
     ${it?`<button class="unq" data-unq="${s.id}" title="Unequip">${ico('x')}</button>`:''}
   </div>`;
 }
@@ -429,18 +502,19 @@ function leftRow(s, up=1){
 function renderLeft(){
   const keep = $('#left .lp-body')?.scrollTop || 0;
   const pt = PV ? PV.t1 : T0;
-  const pcls = pt.power>BODY.maxPower ? 'bad' : pt.power>T0.power ? 'warn' : '';
+  const pcls = pt.power>BODY.generator ? 'bad' : pt.power>T0.power ? 'warn' : '';
   let html = `
     <div class="lp-head bodysel ${S.focus==='body'?'focus':''}">
       <div class="ic"><svg width="30" height="30" viewBox="0 0 24 24" fill="currentColor"><path d="M12 2l3 7 7 3-7 3-3 7-3-7-7-3 7-3z"/></svg></div>
-      <div class="nm"><button class="bsb" data-bstep="-1" title="Previous main body">‹</button><span class="bname" data-bpick>${BODY.name}</span><button class="bsb" data-bstep="1" title="Next main body">›</button><small class="btag">${BODY.tag}</small></div>
-      <div class="pw"><svg viewBox="0 0 16 16" fill="currentColor">${I.power}</svg><span class="n ${pcls}">${pt.power}</span><span>/ ${BODY.maxPower}</span></div>
+      <div class="nm"><button class="bsb" data-bstep="-1" title="Previous Body">‹</button><span class="bname" data-bpick title="${BODY.name}">${BODY.name}</span><button class="bsb" data-bstep="1" title="Next Body">›</button></div>
+      <div class="bunl" title="Bodies unlocked / Bodies in the game"><small>UNLOCKED</small>${unlockedBodies()}/${BODIES_IN_GAME}</div>
+      <div class="pw"><svg viewBox="0 0 16 16" fill="currentColor">${I.power}</svg><span class="n ${pcls}">${pt.power}</span><span>/ ${BODY.generator}</span></div>
     </div>
     <div class="lp-body">`;
   for(const n of SIZE_ORDER){
     const roots = LY.list.filter(s=>!s.parent && s.size===n);
     if(!roots.length) continue;
-    html += `<div class="sec-title"><span class="st-l">${sg(n,16)}${SIZE[n].label} · ${SIZE[n].name.toUpperCase()} SOCKETS</span><span>${roots.length} ON BODY</span></div>`;
+    html += `<div class="sec-title"><span class="st-l">${sg(n,16)}${SIZE[n].label} · ${SIZE[n].name.toUpperCase()} SOCKETS</span></div>`;
     // rows between a child and its pylon: the tree line runs all the way up to the pylon row
     const rows = LY.list.filter(s => roots.some(r => inTree(s.id,r.id)));
     const at = Object.fromEntries(rows.map((s,i) => [s.id,i]));
@@ -456,21 +530,21 @@ function skCell(n, t, nn){
   return `<div class="wc sk">${sg(n,20)}<span class="v">${nn.sock[n].free}<i>/${nn.sock[n].total}</i></span>${d?`<span class="d ${d>0?'up':'nt'}">${sgn(d)}</span>`:''}</div>`;
 }
 function statCell(icon,label,val,delta,k){
-  const c = dcls(k,delta);
-  return `<div class="st"><div class="si">${ico(icon)}</div><div><div class="sl">${label}</div><div class="sv ${delta?c:''}">${fmt(val)}</div></div>${delta?`<div class="sd ${c}">${sgn(delta)}</div>`:''}</div>`;
+  const c = dcls(k,delta), v = k==='boostTime' && !val ? '—' : fmtStat(k,val).replace(/\s?([a-z/%]+)$/i, '<small>$1</small>');
+  return `<div class="st"><div class="si">${ico(icon)}</div><div><div class="sl">${label}</div><div class="sv ${delta?c:''}">${v}</div></div><div class="sd ${c} ${delta?'':'off'}">${delta?sgnStat(k,delta):''}</div></div>`;
 }
-function wcell(cls,icon,val,delta){
+function wcell(cls,icon,val,delta,tip=''){
   const c = delta ? (delta>0?'up':'dn') : '';
-  return `<div class="wc ${cls}">${ico(icon)}<span class="v ${val?'':'zero'} ${c}">${val}</span>${delta?`<span class="d ${c}">${sgn(delta)}</span>`:''}</div>`;
+  return `<div class="wc ${cls}" title="${tip}">${ico(icon)}<span class="v ${val?'':'zero'} ${c}">${val}</span>${delta?`<span class="d ${c}">${sgn(delta)}</span>`:''}</div>`;
 }
 
 function renderRight(){
   const keep = $('.cg-list')?.scrollTop || 0;
   const t = T0, n = PV ? PV.t1 : T0;
-  const over = n.power > BODY.maxPower;
+  const over = n.power > BODY.generator;
 
   let bar='';
-  for(let i=0;i<BODY.maxPower;i++){
+  for(let i=0;i<BODY.generator;i++){
     let c='';
     if(over) c='over';
     else if(n.power>=t.power) c = i<t.power ? 'on' : i<n.power ? 'add' : '';
@@ -478,27 +552,41 @@ function renderRight(){
     bar += `<i class="${c}"></i>`;
   }
   const pd = n.power - t.power;
-  const wrow = (label,a,b)=>`<div class="wrow"><div class="rl">${label}</div>
-      ${wcell('k','kin',b.kin,b.kin-a.kin)}${wcell('e','exp',b.exp,b.exp-a.exp)}${wcell('n','nrg',b.nrg,b.nrg-a.nrg)}</div>`;
+  // heat load: heat generated by primaries per second vs heat the heatsink removes per second
+  const load = v => Math.round(v/BODY.heatsink*100);
+  const hot = n.heat > BODY.heatsink, hd = load(n.heat) - load(t.heat);
+  const hpct = v => Math.min(100, v/BODY.heatsink*100);
+  const hlo = Math.min(t.heat,n.heat), hhi = Math.max(t.heat,n.heat);
+  const heatTip = `<span class="tip">?<span class="tipbox"><b>HEAT LOAD</b>
+      Primary weapons build up heat while firing; the Body heatsink removes it.<br>
+      <b class="ok">Up to 100%</b> the heatsink keeps up: you can fire forever.<br>
+      <b class="no">Over 100%</b> heat builds up while firing: pause to cool down or the weapons overheat.
+      <span class="tipnum">Primaries generate <b>${n.heat}</b> heat/s · heatsink removes <b>${BODY.heatsink}</b> heat/s</span></span></span>`;
 
   const ov = `<div class="ov">
-    <div class="head">SPACESHIP OVERVIEW<small>${PV?'PREVIEW':'CURRENT'}</small></div>
+    <div class="head">SPACESHIP OVERVIEW<small>${PV?'PREVIEW':''}</small></div>
     <div class="ov-body">
+      <div class="valrow"><div class="rl">SHIP VALUE</div><div class="val">${ico('value')}<b>${fmt(n.value)}</b><div class="dslot">${n.value!==t.value?`<span class="sd nt">${sgn(n.value-t.value)}</span>`:''}</div></div></div>
       <div class="pw-row">
-        <div class="lbl">POWER<b class="${over?'bad':''}">${n.power} / ${BODY.maxPower}</b></div>
+        <div class="lbl">POWER<b class="${over?'bad':''}">${n.power} / ${BODY.generator}</b></div>
         <div class="pbar">${bar}</div>
-        ${pd?`<div class="sd ${over?'dn':dcls('power',pd)}" style="font-size:16px;font-weight:700;padding:1px 7px;border-radius:2px">${sgn(pd)}</div>`:''}
+        <div class="dslot">${pd?`<span class="sd ${over?'dn':dcls('power',pd)}">${sgn(pd)}</span>`:''}</div>
+      </div>
+      <div class="pw-row heat-row">
+        <div class="lbl">HEAT LOAD${heatTip}<b class="${hot?'bad':''}">${load(n.heat)}%</b></div>
+        <div class="hwrap">
+          <div class="hbar ${hot?'hot':''}"><i class="cur" style="width:${hpct(hlo)}%"></i><i class="${n.heat>t.heat?'add':'rem'}" style="left:${hpct(hlo)}%;width:${hpct(hhi)-hpct(hlo)}%"></i></div>
+          <div class="hstat ${hot?'no':'ok'}">${hot?'OVERHEATS ON SUSTAINED FIRE':'∞ SUSTAINED FIRE'}</div>
+        </div>
+        <div class="dslot">${hd?`<span class="sd ${hot?'dn':dcls('heat',hd)}">${sgn(hd)}%</span>`:''}</div>
       </div>
       <div class="stats">
-        ${statCell('value','VALUE',n.value,n.value-t.value,'value')}
-        ${statCell('eng','ENGINE',n.eng,n.eng-t.eng,'eng')}
-        ${statCell('hull','HULL',n.hull,n.hull-t.hull,'hull')}
-        ${statCell('shield','SHIELD',n.shield,n.shield-t.shield,'shield')}
-      </div>
-      <div class="wrows">
-        ${wrow('PRIMARY',t.pri,n.pri)}
-        ${wrow('SECONDARY',t.sec,n.sec)}
-        <div class="wrow"><div class="rl">FREE SOCKETS</div>${skCell(3,t,n)}${skCell(2,t,n)}${skCell(1,t,n)}</div>
+        ${statCell('hull','INTEGRITY',BODY.integrity,0,'')}
+        ${statCell('shield','SHIELD POWER',BODY.shield,0,'')}
+        ${statCell('dps','PRIMARY DPS',n.priDps,n.priDps-t.priDps,'priDps')}
+        ${statCell('dps','SECONDARY DPS',n.secDps,n.secDps-t.secDps,'secDps')}
+        ${statCell('speed','MAX SPEED',n.maxSpeed,n.maxSpeed-t.maxSpeed,'maxSpeed')}
+        ${statCell('boost','BOOST DURATION',n.boostTime,n.boostTime-t.boostTime,'boostTime')}
       </div>
     </div></div>`;
 
@@ -506,36 +594,25 @@ function renderRight(){
   ensureTab();
   const sock = selSock(), list = cargoList();
   if(S.cargoIdx>=list.length) S.cargoIdx = Math.max(0,list.length-1);
-  const curA = S.att[S.sel], curIt = curA ? ITEM(curA.id) : null, curM = curA && curA.t==='mod' ? curIt : null;
+  const curA = S.att[S.sel], curIt = curA ? ITEM(curA.id) : null;
   const cats = TAB_ORDER.map(k=>{
-    const cnt = k==='pylon' ? '∞' : cargoItems(sock.size,k).reduce((a,m)=>a+S.cargo[m.id],0);
-    return `<div class="cat ${TAB_CLS[k]} ${k===S.tab?'act':''}" data-tab="${k}">${TAB_LABEL[k].toUpperCase()}<i>${cnt}</i></div>`;
+    return `<div class="cat ${TAB_CLS[k]} ${k===S.tab?'act':''}" data-tab="${k}">${TAB_LABEL[k].toUpperCase()}</div>`;
   }).join('');
   const rows = list.map((m,i)=>{
     const pyl = isPylon(m.id);
-    const fits = pyl ? true : wouldFit(S.sel,m.id);
+    const room = hasRoom(S.sel,m.id), fits = room && (pyl || wouldFit(S.sel,m.id));
     const focus = S.focus==='cargo' && i===S.cargoIdx, hov = S.hoverCargo===m.id;
-    let chips;
-    if(pyl){
-      chips = `<span class="chip">${m.type==='ext'?'Extension':'Split'} ›</span>${outGlyphs(m)}<span class="chip">${ico('value')}${fmt(m.value)}</span>`;
-    }else{
-      chips = ['kin','exp','nrg','eng','hull','shield'].filter(k=>mv(m,k)).map(k=>{
-        const d = curM ? mv(m,k)-mv(curM,k) : 0;
-        return `<span class="chip">${ico(STAT_META[k].icon)}${fmt(mv(m,k))}${curM&&d?` <em class="${dcls(k,d)}">${sgn(d)}</em>`:''}</span>`;
-      }).join('');
-      const pd2 = curM ? m.power-curM.power : 0;
-      chips += `<span class="chip">${ico('power')}${m.power}${curM&&pd2?` <em class="${dcls('power',pd2)}">${sgn(pd2)}</em>`:''}</span>`;
-    }
-    const label = !fits ? 'NO POWER' : (curIt?'REPLACE':'EQUIP');
+    const label = !room ? 'CARGO FULL' : !fits ? 'NO POWER' : (curIt?'REPLACE':'EQUIP');
     return `<div class="cg-row ${pyl?'pyl':KIND[m.kind].cls+' rar'} ${focus?'sel':''} ${hov?'hov':''} ${fits?'':'nopow'}" data-item="${m.id}" data-i="${i}"${pyl?'':` style="--rc:${rarCol(m)}"`}>
-      <div class="ic">${ico(pyl?'pylon':m.kind)}</div>
-      <div class="mid"><div class="nm">${pyl?'':lvBadge(m)}${m.name}<small>${pyl?'∞':'×'+S.cargo[m.id]}</small></div><div class="chips">${chips}</div></div>
+      <div class="ic">${ico(pyl?'pylon':m.fam)}</div>
+      <div class="mid"><div class="nm">${m.name}${pyl?'':`<small>×${S.cargo[m.id]}</small>`}</div></div>
+      ${pyl?outGlyphs(m):`<span class="outs">${sg(m.size,14)}</span>`}
       <div class="act">${focus||hov?label:''}${focus?glyph('A'):''}</div>
     </div>`;
   }).join('') || `<div class="cg-empty">NO ${TAB_LABEL[S.tab].toUpperCase()} FOR A ${SIZE[sock.size].label} SOCKET IN CARGO<br><span style="font-size:15px">Try another tab, or craft / loot new parts</span></div>`;
 
   const cg = `<div class="cg">
-    <div class="head">CARGO<small>${Object.keys(MODS).reduce((a,id)=>a+(S.cargo[id]||0),0)} MODULES · PYLONS ∞</small></div>
+    <div class="head">CARGO<small>${cargoSlots(S.cargo)} / ${CARGO_SLOTS} SLOTS</small></div>
     <div class="target"><span>TARGET · ${sg(sock.size,14)} <b>${SIZE[sock.size].label} SOCKET</b> · ${SIZE[sock.size].name.toUpperCase()}</span><span>${curIt?curIt.name.toUpperCase():'EMPTY'}</span></div>
     <div class="cats">${glyph('LT')}${cats}${glyph('RT')}</div>
     <div class="cg-list">${rows}</div>
@@ -546,9 +623,6 @@ function renderRight(){
 }
 
 /* ---------- compare card ---------- */
-const CARD_KEYS = ['power','kin','exp','nrg','eng','hull','shield','value'];
-function totalsOf(t){ return { power:t.power, kin:t.pri.kin+t.sec.kin, exp:t.pri.exp+t.sec.exp, nrg:t.pri.nrg+t.sec.nrg, eng:t.eng, hull:t.hull, shield:t.shield, value:t.value }; }
-
 function renderCard(){
   const sock = selSock(), curA = S.att[S.sel], cur = curA ? ITEM(curA.id) : null;
   const head = title => `<div class="ch"><span class="tg">${sg(sock.size,14)} ${SIZE[sock.size].label} SOCKET</span>${title}</div>`;
@@ -559,45 +633,46 @@ function renderCard(){
       html = head('EMPTY SOCKET') + `<div class="emptyc">This ${SIZE[sock.size].name.toLowerCase()} socket is free.<br>${n?`${glyph('A')} to browse the <b style="color:#fff">${n}</b> compatible ${TAB_LABEL[S.tab].toLowerCase()} in your cargo and compare them with your current build.`:`Nothing in the <b style="color:#fff">${TAB_LABEL[S.tab]}</b> tab fits a ${SIZE[sock.size].label} socket — try another tab (${glyph('LT')}${glyph('RT')}).`}</div>`;
     }else if(curA.t==='pyl'){
       const kids = (sock.kids||[]).map(k => `<span class="kidchip">${sg(k.size,13)} ${S.att[k.id]?ITEM(S.att[k.id].id).name:'<i>free</i>'}</span>`).join('');
-      html = head(cur.name.toUpperCase()) + `<div class="emptyc">${cur.type==='ext'?'Extension':'Split'} pylon · ${SIZE[cur.size].label} in → ${outputsOf(cur).map(n=>SIZE[n].label).join(' + ')} out<div class="kids">${kids}</div></div>
-        <div class="cf"><span>Select a cargo item to swap this pylon (attached parts return to cargo)</span><span>${glyph('A')}</span></div>`;
+      html = head(cur.name.toUpperCase()) + `<div class="emptyc">${cur.type==='ext'?'Extension':'Split'} arm · ${SIZE[cur.size].label} in → ${outputsOf(cur).map(n=>SIZE[n].label).join(' + ')} out<div class="kids">${kids}</div></div>
+        <div class="cf"><span>Select a cargo item to swap this arm (attached parts return to cargo)</span><span>${glyph('A')}</span></div>`;
     }else{
-      const rows = CARD_KEYS.filter(k=>mv(cur,k)).map(k=>`<tr><td>${ico(STAT_META[k].icon)}${STAT_META[k].label}</td><td>${fmt(mv(cur,k))}</td></tr>`).join('');
-      html = head(`${lvBadge(cur)}${cur.name.toUpperCase()}`) + `<table><tr><th>STAT</th><th>INSTALLED</th></tr>${rows}</table>
+      const rows = modKeys(cur).map(k=>`<tr><td>${ico(STAT_META[k].icon)}${STAT_META[k].label}</td><td>${fmtStat(k,cur[k])}</td></tr>`).join('');
+      html = head(`${rarDot(cur)}${cur.name.toUpperCase()}<span class="fam">${FAMILY[cur.fam].label}</span>`) + `<table><tr><th>STAT</th><th>INSTALLED</th></tr>${rows}</table>
         <div class="cf"><span>Select a cargo item to compare it against <b>${cur.name}</b></span><span>${glyph('A')}</span></div>`;
     }
   }else{
     const to = PV.to ? ITEM(PV.to) : null;
     const pylonCase = isPylon(PV.to||'') || (curA && curA.t==='pyl');
-    const over = PV.t1.power - BODY.maxPower;
+    const over = PV.t1.power - BODY.generator;
     const title = to
-      ? `<span class="old">${cur?lvBadge(cur)+cur.name.toUpperCase():'EMPTY'}</span><span class="arrow">➜</span>${lvBadge(to)}${to.name.toUpperCase()}`
-      : `REMOVE <span class="old">${lvBadge(cur)}${cur.name.toUpperCase()}</span>`;
+      ? `<span class="old">${cur?rarDot(cur)+cur.name.toUpperCase():'EMPTY'}</span><span class="arrow">➜</span>${rarDot(to)}${to.name.toUpperCase()}`
+      : `REMOVE <span class="old">${rarDot(cur)}${cur.name.toUpperCase()}</span>`;
     let table = '';
     if(!pylonCase){
-      const keys = CARD_KEYS.filter(k=>mv(cur,k)||mv(to,k));
-      table = `<table><tr><th>STAT</th><th>${cur?'INSTALLED':''}</th><th>${to?'NEW':''}</th><th>Δ</th></tr>` + keys.map(k=>{
-        const o = mv(cur,k), nn = mv(to,k), d = nn-o;
-        return `<tr><td>${ico(STAT_META[k].icon)}${STAT_META[k].label}</td><td class="o">${cur?fmt(o):'—'}</td><td>${to?fmt(nn):'—'}</td><td class="dl ${d?dcls(k,d):'nt'}">${d?sgn(d):'='}</td></tr>`;
+      table = `<table><tr><th>STAT</th><th>${cur?'INSTALLED':''}</th><th>${to?'NEW':''}</th><th>Δ</th></tr>` + (cur && to && cur.kind!==to.kind ? modKeys(to) : modKeys(cur,to)).map(k=>{   // different module types: only the new one's params
+        const has = it => it && MOD_KEYS[it.kind].includes(k);
+        const cell = it => has(it) ? fmtStat(k,it[k]) : '—';
+        let dl;
+        if(STAT_META[k].text) dl = `<td class="dl nt">${has(cur)&&has(to)&&cur[k]===to[k]?'=':'≠'}</td>`;
+        else { const d = mv(to,k)-mv(cur,k); dl = `<td class="dl ${d?dcls(k,d):'nt'}">${d?sgnStat(k,d):'='}</td>`; }
+        return `<tr><td>${ico(STAT_META[k].icon)}${STAT_META[k].label}</td><td class="o">${cell(cur)}</td><td>${cell(to)}</td>${dl}</tr>`;
       }).join('') + `</table>`;
     }else{
-      const a = totalsOf(T0), b = totalsOf(PV.t1);
-      let rows = '';
+      const outs = it => it && isPylon(it.id) ? `<span class="outs rt">${outputsOf(it).map(n=>sg(n,14)).join('')}</span>` : '—';
+      let rows = `<tr><td>${ico('sockets')}Output sockets</td><td class="o">${outs(cur)}</td><td>${outs(to)}</td><td class="dl nt"></td></tr>`;
       for(const n of SIZE_ORDER){
         const d = PV.t1.sock[n].free - T0.sock[n].free;
         if(d) rows += `<tr><td>${sg(n,14)}Free ${SIZE[n].label} sockets</td><td class="o">${T0.sock[n].free}</td><td>${PV.t1.sock[n].free}</td><td class="dl ${d>0?'up':'nt'}">${sgn(d)}</td></tr>`;
       }
-      for(const k of CARD_KEYS){
-        const d = b[k]-a[k];
-        if(d) rows += `<tr><td>${ico(STAT_META[k].icon)}${STAT_META[k].label} <small class="tot">(whole ship)</small></td><td class="o">${fmt(a[k])}</td><td>${fmt(b[k])}</td><td class="dl ${dcls(k,d)}">${sgn(d)}</td></tr>`;
-      }
-      table = `<table><tr><th>BUILD</th><th>NOW</th><th>AFTER</th><th>Δ</th></tr>${rows}</table>`;
+      table = `<table><tr><th>SOCKETS</th><th>NOW</th><th>AFTER</th><th>Δ</th></tr>${rows}</table>`;
     }
     const back = PV.ret.filter((id,i)=>!(i===0 && !pylonCase));
     const backTxt = back.length && pylonCase ? `<div class="retline">Returns to cargo: ${PV.ret.map(id=>ITEM(id).name).join(', ')}</div>` : '';
-    const foot = over>0
-      ? `<span>POWER <b>${T0.power}</b> ➜ <b class="no">${PV.t1.power} / ${BODY.maxPower}</b></span><span class="no">NOT ENOUGH POWER (${over} OVER)</span>`
-      : `<span>POWER <b>${T0.power}</b> ➜ <b>${PV.t1.power} / ${BODY.maxPower}</b></span><span class="ok">${to?(cur?'READY TO REPLACE':'READY TO EQUIP'):'GOES BACK TO CARGO'}</span>`;
+    const foot = !PV.room
+      ? `<span>CARGO <b class="no">${CARGO_SLOTS} / ${CARGO_SLOTS}</b></span><span class="no">CARGO FULL · NO ROOM FOR RETURNED MODULES</span>`
+      : over>0
+      ? `<span>POWER <b>${T0.power}</b> ➜ <b class="no">${PV.t1.power} / ${BODY.generator}</b></span><span class="no">NOT ENOUGH POWER (${over} OVER)</span>`
+      : `<span>POWER <b>${T0.power}</b> ➜ <b>${PV.t1.power} / ${BODY.generator}</b></span><span class="ok">${to?(cur?'READY TO REPLACE':'READY TO EQUIP'):'GOES BACK TO CARGO'}</span>`;
     html = head(title) + table + backTxt + `<div class="cf">${foot}</div>`;
   }
   $('#card').innerHTML = html;
@@ -607,7 +682,8 @@ function renderCard(){
 function renderBottom(){
   const d = dev(), curA = S.att[S.sel];
   const list = cargoList(), cm = list[S.cargoIdx];
-  const fits = cm ? (isPylon(cm.id) || wouldFit(S.sel, cm.id)) : true;
+  const room = cm ? hasRoom(S.sel, cm.id) : true;
+  const fits = cm ? room && (isPylon(cm.id) || wouldFit(S.sel, cm.id)) : true;
   const H = (g,label,attrs='',cls='')=>`<div class="hint ${cls}" ${attrs}>${g}<span>${label}</span></div>`;
   let left = '';
   if(S.picker){
@@ -623,7 +699,7 @@ function renderBottom(){
     left += H(glyph('X'),'Unequip','data-act="x"', curA?'':'off');
   }else{
     left += H(glyph('dpad'),'Compare','data-act="none"');
-    left += H(glyph('A'), !cm ? 'Equip' : !fits ? 'Not enough power' : curA?'Replace':'Equip','data-act="a"', (!cm||!fits)?'off':'');
+    left += H(glyph('A'), !cm ? 'Equip' : !room ? 'Cargo full' : !fits ? 'Not enough power' : curA?'Replace':'Equip','data-act="a"', (!cm||!fits)?'off':'');
     left += H(glyph('B'),'Back','data-act="b"');
   }
   if(!S.picker && S.focus!=='body'){
@@ -631,6 +707,7 @@ function renderBottom(){
     left += H(glyph('Y'),'Remove all','id="hAll" data-hold="all"','hold');
   }
   left += H(glyph('RS'), d==='gamepad'?'Rotate':'Rotate / zoom','data-act="none"');
+  left += H(glyph('VIEW'),'View mode','data-act="view"');
   const pref = { gamepad:'GAMEPAD', keyboard:'KEYBOARD', auto:'AUTO' }[S.inputPref];
   $('#bottom').innerHTML = `<div class="hints">${left}</div>
     <div class="rightbar">
@@ -639,8 +716,33 @@ function renderBottom(){
     </div>`;
 }
 
+/* ---------- local save: builds survive a page refresh ---------- */
+const SAVE_KEY = 'crafting.save.v1';
+let lastSave = '';
+function saveLocal(){
+  const builds = { ...S.builds, [BODY.id]: S.att };
+  const data = JSON.stringify({ body:BODY.id, builds, cargo:S.cargo });
+  if(data===lastSave) return;
+  try{ localStorage.setItem(SAVE_KEY, data); lastSave = data; }catch(e){}
+}
+function loadLocal(){
+  let d; try{ d = JSON.parse(localStorage.getItem(SAVE_KEY)); }catch(e){}
+  if(!d || !d.builds) return;
+  // drop anything the current catalogue no longer knows (renamed modules, custom .glb bodies)
+  const okAtt = a => Object.fromEntries(Object.entries(a||{}).filter(([,v]) => v && ITEMS[v.id] && (v.t==='pyl')===isPylon(v.id)));
+  const builds = {};
+  for(const [id,a] of Object.entries(d.builds)) if(BODIES[id]) builds[id] = okAtt(a);
+  // modules added to the catalogue after the save start with a full stack
+  const cargo = Object.fromEntries(Object.keys(MODS).map(id => [id, Math.max(0, +(d.cargo?.[id] ?? STACK) || 0)]));
+  if(BODIES[d.body]) BODY = BODIES[d.body];
+  S.att = builds[BODY.id] || {}; delete builds[BODY.id];
+  S.builds = builds; S.cargo = cargo;
+  S.sel = navOrder(layout(S.att))[0] || BODY.sockets[0].id;
+}
+
 function renderAll(){
   LY = layout(S.att); T0 = calc(S.att);
+  saveLocal();
   if(!LY.byId[S.sel]) S.sel = navOrder(LY)[0] || BODY.sockets[0].id;
   PV = computePreview();
   renderLeft(); renderRight(); renderShip(); renderCard(); renderBottom(); renderPicker();
@@ -677,9 +779,10 @@ function cycleCat(dir){
   S.cargoIdx = 0; S.hoverCargo = null; renderAll();
 }
 function equip(id, sid=S.sel){
-  const it = ITEM(id); if(!it || !(isPylon(id) || S.cargo[id]>0)) return;
+  const it = ITEM(id); if(!it || !(isPylon(id) || S.cargo[id]>0) || !canMount(id, LY.byId[sid])) return;
   const pre = makePreview(sid,id);
   if(!pre.fits){ toast('NOT ENOUGH POWER','bad'); return; }
+  if(!pre.room){ toast('CARGO FULL','bad'); return; }
   const r = attachTo(S.att, S.cargo, sid, id);
   S.att = r.att; S.cargo = r.cargo;
   S.focus = 'slots'; S.hoverCargo = null; S.cargoIdx = 0;
@@ -694,18 +797,52 @@ function unequip(sid=S.sel){
   const a = S.att[sid]; S.hoverRemove = null;
   if(!a){ toast('SOCKET ALREADY EMPTY','info'); renderAll(); return; }
   const r = attachTo(S.att, S.cargo, sid, null);
+  if(cargoSlots(r.cargo) > CARGO_SLOTS){ toast('CARGO FULL','bad'); renderAll(); return; }
   S.att = r.att; S.cargo = r.cargo;
   toast(r.ret.length>1 ? `${r.ret.length} PARTS MOVED TO CARGO` : `${ITEM(a.id).name.toUpperCase()} MOVED TO CARGO`,'info');
   flash(sid);
 }
+/* ---------- DEBUG (mockup only, not part of the game): random legal build ---------- */
+// Walks the sockets breadth-first and fills each with an arm, a module or nothing, following
+// the same rules as the player: socket size, extensions only on Body sockets, power budget,
+// modules taken from cargo, cargo slot limit.
+function randomBuild(){
+  const pick = a => a[Math.floor(Math.random()*a.length)];
+  for(let attempt=0; attempt<20; attempt++){
+    const C = { ...S.cargo };
+    for(const k of Object.keys(S.att)) if(!isPylon(S.att[k].id)) C[S.att[k].id] = (C[S.att[k].id]||0)+1;
+    let att = {};
+    const queue = BODY.sockets.map(b => b.id);
+    while(queue.length){
+      const sid = queue.shift(), s = layout(att).byId[sid]; if(!s) continue;
+      const arms = Object.values(PYLONS).filter(p => p.size===s.size && canMount(p.id, s));
+      if(arms.length && Math.random() < (s.parent ? .25 : .4)){
+        const p = pick(arms); att = { ...att, [sid]:P(p.id) };
+        outputsOf(p).forEach((_,i) => queue.push(`${sid}.${i}`));
+        continue;
+      }
+      const mods = Object.values(MODS).filter(m => m.size===s.size && C[m.id]>0 && calc({ ...att, [sid]:M(m.id) }).power <= BODY.generator);
+      if(mods.length && Math.random() < .9){ const m = pick(mods); att = { ...att, [sid]:M(m.id) }; C[m.id]--; }
+    }
+    if(cargoSlots(C) > CARGO_SLOTS) continue;
+    S.att = att; S.cargo = C; S.focus = 'slots'; S.sel = navOrder(layout(att))[0];
+    toast(`DEBUG · RANDOM BUILD · ${Object.keys(att).length} PARTS`,'info'); renderAll();
+    return;
+  }
+  toast('DEBUG · NO LEGAL RANDOM BUILD FOUND','bad');
+}
+
 function removeAll(){
-  const n = Object.keys(S.att).length;
-  for(const k of Object.keys(S.att)) if(!isPylon(S.att[k].id)) S.cargo[S.att[k].id] = (S.cargo[S.att[k].id]||0)+1;
-  S.att = {}; S.focus = 'slots'; S.sel = BODY.sockets[0].id;
+  const n = Object.keys(S.att).length, C = { ...S.cargo };
+  for(const k of Object.keys(S.att)) if(!isPylon(S.att[k].id)) C[S.att[k].id] = (C[S.att[k].id]||0)+1;
+  if(cargoSlots(C) > CARGO_SLOTS){ toast('CARGO FULL','bad'); return; }
+  S.cargo = C; S.att = {}; S.focus = 'slots'; S.sel = BODY.sockets[0].id;
   toast(n?`${n} PARTS MOVED TO CARGO`:'NOTHING TO REMOVE','info'); renderAll();
 }
 function act(name){
   S.hoverCargo = S.hoverRemove = null;
+  if(name==='view'){ setView(!S.view); return; }
+  if(S.view){ if(name==='b') setView(false); return; }
   if(S.picker){
     ({ left:()=>pickMove(-1), right:()=>pickMove(1), up:()=>pickMove(-2), down:()=>pickMove(2), a:confirmPick, b:closePicker })[name]?.();
     return;
@@ -730,7 +867,18 @@ function act(name){
   }
 }
 
-/* ---------- main body selector ---------- */
+/* ---------- view mode: full-screen ship, no UI ---------- */
+function setView(on){
+  S.view = on; S.hoverSlot = S.hoverCargo = S.hoverRemove = null;
+  stage.classList.toggle('viewmode', on);
+  if(on) S.rot.d = Math.max(S.rot.d, BODY.cam);
+  else { Object.assign(S.rot, homeRot()); window.resetPan?.(); }
+  window.resizeShip?.(); renderAll();
+}
+const ROT = () => S.view ? { pmin:-1.45, pmax:1.45, dmin:3, dmax:45 } : { pmin:-.25, pmax:1.1, dmin:8, dmax:26 };
+const clampRot = () => { const r = ROT(); S.rot.pitch = Math.max(r.pmin, Math.min(r.pmax, S.rot.pitch)); S.rot.d = Math.max(r.dmin, Math.min(r.dmax, S.rot.d)); };
+
+/* ---------- Body selector ---------- */
 function switchBody(id){
   if(!BODIES[id] || id===BODY.id) return;
   S.builds[BODY.id] = S.att;                 // every body keeps its own build
@@ -739,7 +887,7 @@ function switchBody(id){
   S.sel = navOrder(layout(S.att))[0];
   Object.assign(S.rot, homeRot());
   window.setShipBody?.();
-  toast(`${BODY.name} · ${BODY.tag}`,'info');
+  toast(BODY.name,'info');
   renderAll();
 }
 function stepBody(dir){ const i = BODY_LIST.indexOf(BODY.id); switchBody(BODY_LIST[(i+dir+BODY_LIST.length)%BODY_LIST.length]); }
@@ -767,18 +915,20 @@ function renderPicker(){
   const cards = BODY_LIST.map((id,i) => {
     const b = BODIES[id], c = bodyCounts(b), mounted = Object.keys(id===BODY.id ? S.att : (S.builds[id]||{})).length;
     return `<div class="bcard ${id===BODY.id?'cur':''} ${i===S.pickIdx?'sel':''}" data-bcard="${i}">
-      <div class="bc-head"><b>${b.name}</b><small>${b.tag}</small>${id===BODY.id?'<span class="bc-use">IN USE</span>':''}</div>
+      <div class="bc-head"><b>${b.name}</b>${id===BODY.id?'<span class="bc-use">IN USE</span>':''}</div>
       <div class="bc-mid">${schematic(b)}
         <div class="bc-stats">
-          <div><span>POWER</span><b>${b.maxPower}</b></div>
-          <div><span>HULL</span><b>${fmt(b.base.hull)}</b></div>
-          <div><span>SHIELD</span><b>${fmt(b.base.shield)}</b></div>
-          <div><span>BASE VALUE</span><b>${fmt(b.base.value)}</b></div>
+          <div><span>INTEGRITY</span><b>${fmt(b.integrity)}</b></div>
+          <div><span>SHIELD POWER</span><b>${fmt(b.shield)}</b></div>
+          <div><span>GENERATOR POWER</span><b>${b.generator}</b></div>
+          <div><span>HEATSINK POWER</span><b>${b.heatsink}</b></div>
+          <div><span>BOOST CHARGE</span><b>${b.boost}</b></div>
+          <div><span>VALUE</span><b>${fmt(b.value||0)}</b></div>
         </div></div>
       <div class="bc-foot"><span class="bc-cnt">${SIZE_ORDER.filter(n=>c[n]).map(n=>`${sg(n,16)}<b>×${c[n]}</b>`).join('')}</span><span class="bc-mnt">${mounted?`${mounted} parts mounted`:'empty build'}</span></div>
     </div>`;
   }).join('');
-  el.innerHTML = `<div class="pk-head">SELECT MAIN BODY<small>${BODY_LIST.length} AVAILABLE</small></div><div class="pk-grid">${cards}</div>`;
+  el.innerHTML = `<div class="pk-head">SELECT BODY<small>${unlockedBodies()} / ${BODIES_IN_GAME} UNLOCKED</small></div><div class="pk-grid">${cards}</div>`;
   el.classList.add('show');
 }
 
@@ -815,6 +965,7 @@ stage.addEventListener('pointermove',e=>{
   const row = e.target.closest?.('.cg-row'), sl = e.target.closest?.('[data-slot]'), un = e.target.closest?.('[data-unq]');
   const hc = row?.dataset.item || null, hr = un?.dataset.unq || null;
   let hs = sl?.dataset.slot || null;
+  if(S.view) return;
   if(!drag && e.target.closest?.('#shipbox')){ hs = pickSlot(e); setShipCursor(hs?'pointer':''); }
   const bcd = e.target.closest?.('[data-bcard]');
   if(S.picker && bcd && +bcd.dataset.bcard!==S.pickIdx){ S.pickIdx = +bcd.dataset.bcard; renderAll(); return; }
@@ -828,6 +979,9 @@ stage.addEventListener('click',e=>{
   if(dragMoved) return;
   const t = e.target;
   if(t.closest('#leave-ov')){ $('#leave-ov').classList.remove('show'); return; }
+  if(t.closest('#viewexit')){ setView(false); return; }
+  if(S.view) return;
+  if(t.closest('#dbgRandom')){ randomBuild(); return; }
   if(t.closest('#pill')){ S.inputPref = { gamepad:'keyboard', keyboard:'auto', auto:'gamepad' }[S.inputPref]; renderTop(); renderAll(); return; }
   const bc = t.closest('[data-bcard]'); if(bc){ S.pickIdx = +bc.dataset.bcard; confirmPick(); return; }
   if(S.picker){ if(!t.closest('#picker')) closePicker(); return; }
@@ -847,18 +1001,26 @@ stage.addEventListener('pointerdown',e=>{
 });
 addEventListener('pointerup',()=>{ holdEnd('all'); holdEnd('leave'); });
 
-/* ship: drag = orbit, wheel = zoom, dblclick = reset */
+/* ship: drag = orbit, wheel = zoom, dblclick = reset.
+   View mode also pans: right / middle drag, or shift + drag */
 let drag=null, dragMoved=false;
-$('#shipbox').addEventListener('pointerdown',e=>{ drag={x:e.clientX,y:e.clientY,yaw:S.rot.yaw,pitch:S.rot.pitch}; dragMoved=false; });
+$('#shipbox').addEventListener('pointerdown',e=>{
+  if(e.target.closest('#viewexit')) return;
+  const pan = S.view && (e.button===1 || e.button===2 || e.shiftKey);
+  drag={x:e.clientX,y:e.clientY,lx:e.clientX,ly:e.clientY,yaw:S.rot.yaw,pitch:S.rot.pitch,pan}; dragMoved=false;
+});
+$('#shipbox').addEventListener('contextmenu',e=>e.preventDefault());
 addEventListener('pointermove',e=>{
   if(!drag) return;
   const dx=e.clientX-drag.x, dy=e.clientY-drag.y;
   if(Math.abs(dx)+Math.abs(dy)>5) dragMoved=true;
-  if(dragMoved){ S.rot.yaw=drag.yaw-dx*.006; S.rot.pitch=Math.max(-.25,Math.min(1.1,drag.pitch+dy*.005)); }
+  if(!dragMoved) return;
+  if(drag.pan){ window.panShip?.((e.clientX-drag.lx)/S.scale, (e.clientY-drag.ly)/S.scale); drag.lx=e.clientX; drag.ly=e.clientY; }
+  else { S.rot.yaw=drag.yaw-dx*.006; S.rot.pitch=drag.pitch+dy*.005; clampRot(); }
 });
 addEventListener('pointerup',()=>{ drag=null; setTimeout(()=>dragMoved=false,0); });
-$('#shipbox').addEventListener('wheel',e=>{ e.preventDefault(); S.rot.d=Math.max(8,Math.min(26,S.rot.d+e.deltaY*.01)); },{passive:false});
-$('#shipbox').addEventListener('dblclick',()=>{ Object.assign(S.rot,homeRot()); });
+$('#shipbox').addEventListener('wheel',e=>{ e.preventDefault(); S.rot.d*=Math.exp(e.deltaY*.001); clampRot(); },{passive:false});
+$('#shipbox').addEventListener('dblclick',()=>{ Object.assign(S.rot,homeRot()); window.resetPan?.(); });
 
 /* =====================================================================
    INPUT — keyboard
@@ -867,6 +1029,8 @@ addEventListener('keydown',e=>{
   if(e.repeat && !['ArrowUp','ArrowDown','w','s'].includes(e.key)) return;
   if(S.inputPref==='auto' && S.device!=='keyboard'){ S.device='keyboard'; renderTop(); renderBottom(); }
   const k = e.key;
+  if(k==='v'||k==='V'){ e.preventDefault(); setView(!S.view); return; }
+  if(S.view){ if(k==='Escape'||k==='Backspace'){ e.preventDefault(); setView(false); } return; }
   const map = { ArrowUp:'up', w:'up', ArrowDown:'down', s:'down', Enter:'a', ' ':'a', Backspace:'b', ArrowLeft:'left', ArrowRight:'right',
                 Delete:'x', x:'x', Tab: e.shiftKey?'catPrev':'catNext' };
   if(map[k]){ e.preventDefault(); act(map[k]); return; }
@@ -888,21 +1052,26 @@ function pollPad(){
   if(pad){
     const b = i => !!pad.buttons[i]?.pressed;
     const now = performance.now();
-    const cur = { up:b(12)||pad.axes[1]<-.6, down:b(13)||pad.axes[1]>.6, left:b(14), right:b(15), a:b(0), b:b(1), x:b(2), y:b(3), lt:b(6), rt:b(7), lb:b(4), rb:b(5), start:b(9) };
+    const cur = { up:b(12)||pad.axes[1]<-.6, down:b(13)||pad.axes[1]>.6, left:b(14), right:b(15), a:b(0), b:b(1), x:b(2), y:b(3), lt:b(6), rt:b(7), lb:b(4), rb:b(5), start:b(9), view:b(8) };
     for(const k of Object.keys(cur)){
       const edge = cur[k] && !gpPrev[k];
       if(edge){
         gpRepeat[k] = now+380;
         if(S.inputPref==='auto' && S.device!=='gamepad'){ S.device='gamepad'; renderTop(); renderBottom(); }
-        ({ up:()=>act('up'), down:()=>act('down'), left:()=>act('left'), right:()=>act('right'), a:()=>act('a'), b:()=>act('b'), x:()=>act('x'),
+        if(S.view){ if(k==='b'||k==='view') setView(false); gpPrev[k]=cur[k]; continue; }
+        ({ view:()=>setView(true), up:()=>act('up'), down:()=>act('down'), left:()=>act('left'), right:()=>act('right'), a:()=>act('a'), b:()=>act('b'), x:()=>act('x'),
            lt:()=>act('catPrev'), rt:()=>act('catNext'), y:()=>holdStart('all'), start:()=>holdStart('leave') })[k]?.();
       }else if(cur[k] && (k==='up'||k==='down') && now>gpRepeat[k]){ gpRepeat[k]=now+90; act(k); }
       if(!cur[k] && gpPrev[k]){ if(k==='y') holdEnd('all'); if(k==='start') holdEnd('leave'); }
       gpPrev[k]=cur[k];
     }
     const rx = pad.axes[2]||0, ry = pad.axes[3]||0;
-    if(Math.abs(rx)>.2||Math.abs(ry)>.2){
-      S.rot.yaw-=rx*.05; S.rot.pitch=Math.max(-.25,Math.min(1.1,S.rot.pitch+ry*.04));
+    if(Math.abs(rx)>.2||Math.abs(ry)>.2){ S.rot.yaw-=rx*.05; S.rot.pitch+=ry*.04; clampRot(); }
+    if(S.view){   // left stick = pan, triggers = zoom
+      const lx = pad.axes[0]||0, ly = pad.axes[1]||0;
+      if(Math.abs(lx)>.2||Math.abs(ly)>.2) window.panShip?.(-lx*14, -ly*14);
+      const z = (pad.buttons[7]?.value||0) - (pad.buttons[6]?.value||0);
+      if(Math.abs(z)>.05){ S.rot.d*=Math.exp(-z*.03); clampRot(); }
     }
   }
   requestAnimationFrame(pollPad);
@@ -916,9 +1085,11 @@ function fit(){ const s=Math.min(innerWidth/1920,innerHeight/1080); S.scale=s; s
 addEventListener('resize',fit); fit();
 
 function boot(){
+  loadLocal();
   Object.assign(S.rot, homeRot());
+  $('#build').textContent = `v${APP_VERSION} · LOCAL`;
   renderTop(); initShip(); renderAll(); requestAnimationFrame(pollPad);
   fetch('version.json',{cache:'no-store'}).then(r=>r.ok?r.json():Promise.reject()).then(v=>{
-    $('#build').textContent = `BUILD v${v.version} · ${v.sha}`; $('#build').title = v.date;
+    $('#build').textContent = `v${APP_VERSION} · BUILD ${v.version} · ${v.sha}`; $('#build').title = v.date;
   }).catch(()=>{});
 }
