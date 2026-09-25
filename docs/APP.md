@@ -45,7 +45,7 @@ Ordine di caricamento in `index.html`: `three.min.js` → `GLTFLoader.js` → `a
 - Debug URL: `?model=<url.glb>` carica un body personalizzato.
 - Docker: `docker compose up -d --build` → `http://localhost:6480`. In produzione l'immagine viene da `ghcr.io/jstplink/crafting:latest`.
 - `version.json` è generato dal Dockerfile (versione CI `1.0.<run>`, sha, data). In locale non esiste: la UI mostra `v<APP_VERSION> · LOCAL`.
-- **Versione app**: `APP_VERSION` in `app.js` (oggi `0.4.0`) va incrementata a ogni commit.
+- **Versione app**: `APP_VERSION` in `app.js` (oggi `0.4.1`) va incrementata a ogni versione e la versione va congelata con `scripts/snapshot.py` (§3b).
 - nginx serve html/js con `no-cache` e `vendor/` con cache di 7 giorni.
 
 ## 3b. Versioning: provare versioni diverse dall'app
@@ -58,6 +58,7 @@ Obiettivo: poter aprire **qualsiasi versione passata** dell'app e confrontarne i
 - **Salvataggi separati per versione**: chiave `localStorage` = `saveKey` dell'entry nel manifest (default `crafting.save.<versione>`; la 0.4.0 usa quella storica `crafting.save.v1`). Il pulsante **COPY BUILD HERE** copia le build salvate di un'altra versione in quella corrente (chiede conferma, poi ricarica).
 - **Esperimenti (flag)**: una versione può esporre `window.craftingExperiments = { items(), toggle(id) }`; il menu mostra ogni voce come interruttore ON/OFF. Serve a combinare/confrontare singole funzioni **dentro la stessa versione** (gli snapshot servono invece a confrontare versioni intere).
 - Le versioni congelate non hanno gli esperimenti nuovi (sono codice vecchio); hanno solo il menu, aggiunto dallo script.
+- Se una versione non ha ancora un salvataggio proprio, `loadLocal` parte da quello storico `crafting.save.v1` (la 0.4.1 ha ereditato così la build della 0.4.0); da lì in poi scrive solo sulla propria chiave.
 
 ### Procedura di rilascio (a ogni versione nuova)
 1. Finire le modifiche in `mockup/` e incrementare `APP_VERSION` in `mockup/app.js`.
@@ -71,6 +72,23 @@ Obiettivo: poter aprire **qualsiasi versione passata** dell'app e confrontarne i
 | Versione | Note |
 |---|---|
 | 0.4.0 | Baseline (tag `v0.4.0` = commit `685adf4`): Body/Arms, parametri moduli, slot cargo, view mode. Salvataggio `crafting.save.v1` |
+| 0.4.1 | Leggibilità: testo più grande e più contrasto, stat chiave su ogni riga + delta + BEST + ordinamento cargo, overview più chiara. Ogni intervento è un esperimento ON/OFF (§3c). Salvataggio `crafting.save.0.4.1` |
+
+## 3c. Esperimenti (flag) della 0.4.1
+
+Tre interruttori nel menu versioni (in alto a destra), tutti ON di default, salvati in `localStorage` (`crafting.flags.<versione>`).
+Definiti in `app.js`: `FLAGS`, `flag(id)`, `loadFlags`, `applyFlags`, `window.craftingExperiments`. Con **tutti spenti l'app è uguale alla 0.4.0**.
+
+| Flag | Cosa cambia | Dove |
+|---|---|---|
+| `bigText` "Readable text" | Font più grandi (etichette maiuscole ≥ 15px, testo ≥ 16px) e `--dim` più chiaro (`#9aa3ab`) + testi molto spenti schiariti (`#8a939b`) | Solo CSS: blocco `#stage.ux-big …` in fondo a `index.html`. La classe `ux-big` è messa sullo stage da `applyFlags` |
+| `keyStats` "Key stat on rows" | Riga slot: icona+valore della stat chiave (DPS armi, velocità motori), senza glifo taglia. Riga cargo a 2 linee: `×n · DPS/SPEED valore · ▲/▼ delta · BEST`. Chip `SORT · …` nella riga TARGET. Ordinamento cargo | `KEYSTAT`, `statOf`, `SORT_FN`, `cargoItems`, `leftRow`, `renderRight`, `cycleSort`; CSS `.ks`, `.cg-row.two`, `.sub`, `.dlt`, `.best`, `.sortchip` |
+| `overview` "Clearer overview" | Potenza mostrata **una volta** (tolta dall'header sinistro e dal footer della card, che dà solo il verdetto); riga unica **SHIP VALUE + FREE SOCKETS** (liberi/totali per taglia, con delta in anteprima); slot vuoti chiamati "Empty"; leggera compattazione (`ux-ov`) per lasciare spazio al cargo | `hdrPower` in `renderLeft`, `valRow` in `renderRight`, `verdict/foot` in `renderCard`, `leftRow`; CSS `.valrow.sum`, `#stage.ux-ov …` |
+
+Dettagli `keyStats`:
+- **Delta** = stat del pezzo in cargo − stat del **modulo montato nel socket selezionato**, solo se dello stesso `kind`; `=` se uguale; nessun delta se il socket è vuoto o contiene un arm.
+- **BEST** = pezzo con la stat più alta fra quelli **montabili** (rispetto a potenza e cargo), solo se ce ne sono ≥ 2 e batte l'eventuale modulo montato dello stesso tipo. Se il montato è già il migliore non compare nessun BEST.
+- **Ordinamenti** (`S.sort`, si cicla con il chip, tasto `O`, o **X** del pad in focus cargo): `stat` (stat chiave ↓, poi rarità), `rarity` (rarità ↓, poi stat), `power` (potenza ↑, poi stat). Non vale per la tab Arms. `S.sort` non viene salvato.
 
 ## 4. Modello di dominio
 
@@ -126,6 +144,7 @@ S.tab        categoria cargo: 'pylon'|'primary'|'secondary'|'engine'
 S.focus      'slots' | 'cargo' | 'body'           dove sta il focus di navigazione
 S.picker/pickIdx   selettore Body aperto / indice
 S.cargoIdx   riga del cargo evidenziata
+S.sort       ordinamento cargo: 'stat'|'rarity'|'power' (esperimento keyStats, non salvato)
 S.hoverCargo / hoverSlot / hoverRemove   hover mouse (guidano anteprima e outline 3D)
 S.inputPref  'gamepad'|'keyboard'|'auto'; S.device = dispositivo rilevato (per 'auto')
 S.flash/flashT   animazione "appena montato"
@@ -189,34 +208,34 @@ Nota: `#top` e le tab "MAINTENANCE / RAIDER LOG / INVENTORY / TRADING" e l'HUD (
 HUD finto (emblema, barre, velocità 0 m/s, livello), titolo stazione, tab con "CRAFTING" attiva, crediti. Glifi LB/RB decorativi.
 
 ### 7.2 Pannello sinistro (`renderLeft`, `leftRow`)
-- **Header** (`lp-head bodysel`): pulsanti ‹ › per cambiare body (`data-bstep`), nome cliccabile (`data-bpick`) che apre il selettore, "UNLOCKED n/12", potenza `usata / generator` (arancione se sale, rosso se eccede, con anteprima).
-- **Lista socket** divisa per sezioni P3/P2/P1 (`sec-title`). Ogni riga (`.slot`): icona (forma socket tratteggiata se vuoto, icona famiglia se modulo, icona arm se braccio), nome, glifo taglia, uscite se arm, glifo `A` se selezionato+focus, pulsante ✕ (`data-unq`) per smontare.
+- **Header** (`lp-head bodysel`): pulsanti ‹ › per cambiare body (`data-bstep`), nome cliccabile (`data-bpick`) che apre il selettore, "UNLOCKED n/12", potenza `usata / generator` (arancione se sale, rosso se eccede, con anteprima; **nascosta con il flag `overview`**).
+- **Lista socket** divisa per sezioni P3/P2/P1 (`sec-title`). Ogni riga (`.slot`): icona (forma socket tratteggiata se vuoto, icona famiglia se modulo, icona arm se braccio), nome (tooltip = nome completo), stat chiave (flag `keyStats`), glifo taglia (non con `keyStats`), uscite se arm, glifo `A` se selezionato+focus, pulsante ✕ (`data-unq`) per smontare.
 - Indentazione di 24px per livello (`--d`) e linee ad albero fino al braccio genitore (`--up`).
-- Stati CSS: `sel`, `focus`, `hov`, `flash`, `pv-add` ("→ NEW"), `pv-rem` (barrato), `rar` (tinta rarità via `--rc`), `free` (vuoto, tratteggiato), `pyl`, `child`.
+- Stati CSS: `sel`, `focus`, `hov`, `flash`, `pv-add` ("→ NEW"), `pv-rem` (barrato), `rar` (tinta rarità via `--rc`), `free` (vuoto, tratteggiato; con `overview` mostra "EMPTY"), `pyl`, `child`.
 
 ### 7.3 Colonna destra
 **Overview** (`.ov`, titolo "SPACESHIP OVERVIEW", mostra "PREVIEW" quando `PV` è attivo):
-1. `SHIP VALUE` con delta.
+1. `SHIP VALUE` con delta (con `overview`, nella stessa riga di `FREE SOCKETS ▲n/tot ■n/tot ●n/tot`, con delta in anteprima).
 2. `POWER n / generator`: barra a segmenti (uno per punto di generatore): `on` (in uso), `add` (verde, verrebbe aggiunto), `rem` (righe rosse, verrebbe liberato), `over` (tutta rossa se si eccede) + delta.
 3. `HEAT LOAD %`: barra continua `hbar` (cur/add/rem), stato "∞ SUSTAINED FIRE" o "OVERHEATS…", tooltip "?" (solo hover mouse).
 4. Griglia 2×3 di `statCell`: INTEGRITY, SHIELD POWER (costanti del body), PRIMARY DPS, SECONDARY DPS, MAX SPEED, BOOST DURATION, con badge delta (verde migliora / rosso peggiora / giallo `wn` per costi in aumento; `dcls` decide in base a `STAT_META.better`).
 
-**Cargo** (`.cg`): titolo con `slot usati / 25`, riga `TARGET` (taglia del socket selezionato + cosa contiene), 4 categorie (Arms, Primary, Secondary, Engines) con glifi LT/RT, lista.
+**Cargo** (`.cg`): titolo con `slot usati / 25`, riga `TARGET` (taglia del socket selezionato; a destra il chip di ordinamento con `keyStats`, altrimenti il nome del pezzo montato), 4 categorie (Arms, Primary, Secondary, Engines) con glifi LT/RT, lista.
 - `cargoItems()` filtra per **taglia del socket selezionato**, categoria, disponibilità (`cargo>0`, arms sempre) e `canMount`.
 - `ensureTab()` cambia categoria automaticamente se quella corrente è vuota per quel socket.
-- Riga: icona, nome, `×quantità` (solo moduli), taglia o uscite (arms), etichetta azione visibile **solo con focus/hover**: `EQUIP`/`REPLACE`/`NO POWER`/`CARGO FULL`. Classe `nopow` se non ci sta.
+- Riga (senza `keyStats`): icona, nome, `×quantità` (solo moduli), taglia o uscite (arms). Con `keyStats` i moduli hanno 2 linee (nome / `×n`, stat, delta, BEST) e niente glifo taglia; etichetta azione visibile **solo con focus/hover**: `EQUIP`/`REPLACE`/`NO POWER`/`CARGO FULL`. Classe `nopow` se non ci sta.
 - Click su una riga = **equipaggia subito** (non solo seleziona).
 
 ### 7.4 Card di confronto (`renderCard`)
 - Senza anteprima: socket vuoto (invito a scegliere), arm montato (uscite e figli), oppure modulo montato (tabella dei parametri).
-- Con anteprima: tabella `INSTALLED | NEW | Δ` (per arms: uscite e socket liberi prima/dopo), riga "Returns to cargo", footer con potenza `T0 ➜ nuova` e verdetto (`READY TO EQUIP/REPLACE`, `NOT ENOUGH POWER (n OVER)`, `CARGO FULL…`, `GOES BACK TO CARGO`).
+- Con anteprima: tabella `INSTALLED | NEW | Δ` (per arms: uscite e socket liberi prima/dopo), riga "Returns to cargo", footer con verdetto (`READY TO EQUIP/REPLACE`, `NOT ENOUGH POWER · NEEDS n MORE`, `CARGO FULL…`, `GOES BACK TO CARGO`). Senza il flag `overview` il footer mostra anche la potenza `T0 ➜ nuova`.
 - Se cambia il tipo di modulo (es. arma → motore) mostra solo i parametri del nuovo.
 
 ### 7.5 Selettore Body (`renderPicker`)
 Griglia 2 colonne di card (`.bcard`): nome, "IN USE", schema dall'alto dei socket (`schematic`), stats del body, conteggio socket per taglia, parti montate. Navigazione: ←→ ±1, ↑↓ ±2, A conferma, B/click fuori chiude.
 
 ### 7.6 Barra bassa (`renderBottom`)
-Suggerimenti dei tasti **che cambiano col contesto** (picker / focus body / focus slot / focus cargo). Sempre presenti: rotazione (RS), View mode, `INPUT · <pref>` (pill che cicla gamepad → keyboard → auto), **HOLD TO LEAVE** (START/Esc tenuto premuto 900 ms → overlay "UNDOCKING…"). "Remove all" (Y / R) è hold-to-confirm 900 ms (`HOLD_MS`, `holdStart/holdEnd/holdDone`, barra di avanzamento via `--p`).
+Suggerimenti dei tasti **che cambiano col contesto** (picker / focus body / focus slot / focus cargo). In focus cargo, con `keyStats`, c'è anche **Sort** (X / `O`). Sempre presenti: rotazione (RS), View mode, `INPUT · <pref>` (pill che cicla gamepad → keyboard → auto), **HOLD TO LEAVE** (START/Esc tenuto premuto 900 ms → overlay "UNDOCKING…"). "Remove all" (Y / R) è hold-to-confirm 900 ms (`HOLD_MS`, `holdStart/holdEnd/holdDone`, barra di avanzamento via `--p`).
 `glyph(n)` restituisce il glifo gamepad o il tasto tastiera secondo `dev()`.
 
 ### 7.7 Debug / mockup-only
@@ -238,25 +257,25 @@ Trascinando un `.glb/.gltf` sullo stage (o con `?model=`), `setHull` cerca i nod
 
 ## 9. Input
 
-Le azioni logiche passano tutte da **`act(name)`**: `up down left right a b x catNext catPrev view`. `act` smista in base al contesto (view mode → picker → focus body → focus slot/cargo).
+Le azioni logiche passano tutte da **`act(name)`**: `up down left right a b x sort catNext catPrev view`. `act` smista in base al contesto (view mode → picker → focus body → focus slot/cargo).
 
 ### 9.1 Flusso di navigazione
 - **Focus `slots`** (default): ↑↓ cambiano socket (`moveSel`, salendo oltre il primo si passa a `body`); **A** → passa al cargo (se vuoto, toast informativo); **X** smonta.
-- **Focus `cargo`**: ↑↓ evidenziano una riga (→ anteprima live); **A** equipaggia; **B / ←** torna a `slots`; **LT/RT** cambiano categoria.
+- **Focus `cargo`**: ↑↓ evidenziano una riga (→ anteprima live); **A** equipaggia; **B / ←** torna a `slots`; **LT/RT** cambiano categoria; **X** (pad) / `O` cambia l'ordinamento (con `keyStats`).
 - **Focus `body`**: ←→ cambia body, **A** apre il selettore, ↓ torna agli slot.
 - Dopo un `equip` il focus torna a `slots`.
 
 ### 9.2 Tastiera
-`↑/W ↓/S` naviga · `Enter/Space` = A · `Backspace` = B · `←/→` · `Del/X` smonta · `Tab / Shift+Tab` categoria · `V` view mode · `R` (tenuto) rimuovi tutto · `Esc` (tenuto) lascia; in picker chiude; in view mode esce.
+`↑/W ↓/S` naviga · `Enter/Space` = A · `Backspace` = B · `←/→` · `Del/X` smonta · `Tab / Shift+Tab` categoria · `O` ordinamento cargo · `V` view mode · `R` (tenuto) rimuovi tutto · `Esc` (tenuto) lascia; in picker chiude; in view mode esce.
 Nota: i tasti `Q/E` sono mostrati come glifi LB/RB ma **non sono associati a nulla**.
 
 ### 9.3 Gamepad (mapping standard, `pollPad` ogni frame)
-A=0 B=1 X=2 Y=3 LB=4 RB=5 LT=6 RT=7 View=8 Start=9 D-pad 12–15. Stick sinistro Y = su/giù (con ripetizione a 90 ms dopo 380 ms). Stick destro = rotazione camera. In view mode: stick sinistro = pan, trigger = zoom, B/View = esci. LT/RT = categoria; Y (tenuto) = rimuovi tutto; Start (tenuto) = lascia.
+A=0 B=1 X=2 Y=3 LB=4 RB=5 LT=6 RT=7 View=8 Start=9 D-pad 12–15. Stick sinistro Y = su/giù (con ripetizione a 90 ms dopo 380 ms). Stick destro = rotazione camera. In view mode: stick sinistro = pan, trigger = zoom, B/View = esci. LT/RT = categoria; Y (tenuto) = rimuovi tutto; Start (tenuto) = lascia; **X in focus cargo = ordinamento** (negli altri focus X smonta).
 `inputPref='auto'` cambia i glifi in base all'ultimo dispositivo usato; `gamepadconnected` mostra un toast.
 
 ### 9.4 Mouse
 - **Hover** riga cargo / riga slot / ✕ / socket nella vista 3D → aggiorna `S.hover*` → anteprima e outline (ogni cambio chiama `renderAll`).
-- **Click** slot o socket 3D → seleziona (focus `slots`); **click riga cargo → equipaggia**; ✕ smonta; tab categorie; hint della barra bassa attivano l'azione corrispondente; header body apre selettore.
+- **Click** slot o socket 3D → seleziona (focus `slots`); **click riga cargo → equipaggia**; ✕ smonta; tab categorie; chip `SORT` (`data-sort`); hint della barra bassa attivano l'azione corrispondente; header body apre selettore.
 - **Vista 3D**: trascina = ruota (soglia 5px per distinguere dal click), rotella = zoom, doppio click = reset camera. Tasto destro/centrale/Shift+drag = pan (solo view mode).
 
 ### 9.5 View mode (`setView`)
@@ -264,21 +283,25 @@ Tasto `V` / View del pad / pulsante "EXIT VIEW MODE". `#shipbox` occupa tutto lo
 
 ## 10. Persistenza (`saveLocal` / `loadLocal`)
 - Salva a ogni `renderAll` (solo se il JSON è cambiato): `{ body, builds (tutte, inclusa la corrente), cargo }`.
-- Non salva: selezione, categoria, camera, view mode, preferenza input.
-- Al caricamento scarta id sconosciuti al catalogo attuale e allinea `t` arm/modulo; i moduli nuovi partono con uno stack pieno; se l'id body non esiste usa ZEPHYROS. Per azzerare: cancellare `crafting.save.v1` da localStorage.
+- Chiave = `crafting.save.<APP_VERSION>` (una per versione). Se manca, si legge la storica `crafting.save.v1` (`LEGACY_SAVE_KEY`).
+- Flag esperimenti: `crafting.flags.<APP_VERSION>`.
+- Non salva: selezione, categoria, ordinamento, camera, view mode, preferenza input.
+- Al caricamento scarta id sconosciuti al catalogo attuale e allinea `t` arm/modulo; i moduli nuovi partono con uno stack pieno; se l'id body non esiste usa ZEPHYROS. Per azzerare: cancellare la chiave della versione da localStorage.
 
 ## 11. Boot (`boot()`)
-`loadLocal` → camera `homeRot()` → scritta build → `renderTop` → `initShip` → `renderAll` → avvio `pollPad` → fetch di `version.json` per completare la scritta build.
+`loadLocal` → `loadFlags` → `applyFlags` → camera `homeRot()` → scritta build → `renderTop` → `initShip` → `renderAll` → avvio `pollPad` → fetch di `version.json` per completare la scritta build.
 
 ## 12. Convenzioni CSS/UI da rispettare
 - Colore dei **tipi di modulo**: solo per **icona**; i colori sono riservati a **taglia socket, rarità e stati** (commento in `index.html`).
 - Rarità: solo colore (tinta riga `--rc`, striscia sull'icona, `rdot`).
 - I delta nelle statistiche **non devono cambiare il layout**: usare slot a larghezza fissa (`dslot`) o badge assoluti (`.sd`), e `visibility:hidden` (`.sd.off`).
+- **Tipografia** (regola dell'esperimento `bigText`): etichette MAIUSCOLE ≥ 15px, testo normale ≥ 16px, niente sotto i 14px per ciò che si legge. Testi secondari: `--dim`; i grigi ancora più spenti (`#5c…`, `#6b…`) hanno contrasto < 4.5:1 e vanno evitati per testo nuovo (usare `#8a939b` o più chiaro).
+- **Ogni modifica UX confrontabile va dietro un flag** (§3c): il CSS nuovo si scopa con una classe sullo stage (`ux-big`, `ux-ov`) o si genera solo quando il flag è attivo, così con il flag spento resta il comportamento precedente.
 - Il nome del body ha larghezza fissa (150px) così i pulsanti ‹ › non si spostano.
 - Il CSS è stratificato (regole successive sovrascrivono le precedenti, es. `.slot`, `.cg-row`, `.st`, `.wc`): quando si modifica un componente cercare **tutte** le occorrenze del selettore.
 
 ## 13. Codice morto / stranezze note
-- `skCell()`, `wcell()` e le classi `.wrow/.wc/.wc.sk` (griglia socket liberi/pot.) **non sono più usate** dall'overview: i socket liberi oggi si vedono solo nell'anteprima degli arms.
+- `skCell()`, `wcell()` e le classi `.wrow/.wc/.wc.sk` (vecchia griglia socket liberi/pot.) **non sono usate**: i socket liberi si vedono nell'overview solo con il flag `overview` (riga `.valrow.sum`, non con `skCell`); senza flag si vedono solo nell'anteprima degli arms.
 - `.slot .pwr` (potenza per slot) è definita in CSS ma non renderizzata.
 - `S.view` non è dichiarato in `S`.
 - `KIND.label` e `TAB_CLS` parzialmente ridondanti; `I.eng/kin/exp/nrg` sono icone non usate.
@@ -291,6 +314,7 @@ Tasto `V` / View del pad / pulsante "EXIT VIEW MODE". `#shipbox` occupa tutto lo
 - **Nuova statistica**: `STAT_META` (etichetta, icona, `better`, unità), poi `MOD_KEYS`/`KEY_ORDER` per i moduli o `calc()` + `renderRight()` per i totali.
 - **Nuovo tipo di arm**: `PYLONS` + `outputsOf` + `spawn` (geometria) + eventuale regola in `canMount`.
 - **Nuova azione da input**: aggiungere il caso in `act()`, la mappatura in tastiera (`keydown`) e gamepad (`pollPad`), il glifo in `glyph()` e il suggerimento in `renderBottom()`.
+- **Nuovo esperimento (flag)**: voce in `FLAGS` (app.js), `flag('id')` nei punti di render, eventuale classe in `applyFlags` e CSS scopato; il menu la mostra da solo.
 - **Costanti di bilanciamento**: `CARGO_SLOTS`, `STACK`, `RAR_MULT`, `HOLD_MS`.
 
 ## 15. Manutenzione di questo documento

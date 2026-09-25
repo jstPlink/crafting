@@ -1170,7 +1170,7 @@ function boot(){
   Object.assign(S.rot, homeRot());
   $('#build').textContent = `v${APP_VERSION} · LOCAL`;
   renderTop(); initShip(); renderAll(); requestAnimationFrame(pollPad);
-  fetch('version.json',{cache:'no-store'}).then(r=>r.ok?r.json():Promise.reject()).then(v=>{
+  fetch('../../version.json',{cache:'no-store'}).then(r=>r.ok?r.json():Promise.reject()).then(v=>{
     $('#build').textContent = `v${APP_VERSION} · BUILD ${v.version} · ${v.sha}`; $('#build').title = v.date;
   }).catch(()=>{});
 }
