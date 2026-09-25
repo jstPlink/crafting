@@ -1,0 +1,825 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Crafting — Marianan Station (mockup)</title>
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Rajdhani:wght@500;600;700&display=swap" rel="stylesheet">
+<style>
+:root{
+  --bg:#06080b;
+  --panel:#0f1115;
+  --line:#23272c;
+  --row:#2c2f34;
+  --row-hi:#3a3e44;
+  --txt:#e9edf0;
+  --dim:#8b949c;
+  --accent:#f4623a;
+  --accent-2:#ff8a5c;
+  --good:#63e07a;
+  --bad:#ff5a5a;
+  --warn:#ffb547;
+  --pri:#d6574b;
+  --sec:#c9a24d;
+  --eng:#2f86ea;
+  --pow:#2e7dff;
+  --font:"Rajdhani","Bahnschrift","Barlow Condensed","Segoe UI",system-ui,sans-serif;
+}
+*{box-sizing:border-box;margin:0;padding:0}
+html,body{height:100%;background:#000;overflow:hidden;font-family:var(--font);color:var(--txt);user-select:none;-webkit-user-select:none}
+button{font:inherit;color:inherit;background:none;border:0;cursor:pointer}
+
+#stage{position:absolute;left:50%;top:50%;width:1920px;height:1080px;transform-origin:center;overflow:hidden;background:var(--bg)}
+
+/* ---------- scene ---------- */
+.scene{position:absolute;inset:0;background:#0c0f12}
+
+/* ---------- top bar ---------- */
+#top{position:absolute;left:0;top:0;width:100%;height:160px;pointer-events:none}
+#top>*{pointer-events:auto}
+.hud{position:absolute;left:80px;top:34px;display:flex;align-items:center;gap:18px}
+.emblem{width:72px;height:72px;border-radius:50%;border:2px solid #667;background:radial-gradient(circle,#1b1f24,#0b0d10);display:grid;place-items:center;}
+.hud-bars{width:230px}
+.hud-bar{display:flex;align-items:center;gap:8px;font-size:15px;color:var(--dim);height:20px}
+.hud-bar b{width:52px;font-weight:600;color:#cfd6dc;text-align:right}
+.segs{flex:1;display:flex;gap:2px}
+.segs i{flex:1;height:8px;background:#22262b}
+.segs i.on.g{background:#3ddb54}.segs i.on.b{background:#2f86ea}
+.hud-speed{margin-top:6px;background:#15181c;text-align:center;font-size:16px;padding:2px 0;border-radius:2px;color:#cfd6dc;width:120px;margin-left:56px}
+.hud-lv{width:26px;height:26px;border-radius:50%;border:2px solid var(--good);color:var(--good);display:grid;place-items:center;font-size:13px;font-weight:700;align-self:flex-start;margin-top:16px}
+
+.station{position:absolute;left:50%;top:38px;transform:translateX(-50%);min-width:340px;text-align:center;font-size:36px;font-weight:700;letter-spacing:.06em;
+  padding:6px 50px;clip-path:polygon(22px 0,calc(100% - 22px) 0,100% 50%,calc(100% - 22px) 100%,22px 100%,0 50%);background:#0a0c0f;
+  border:0;box-shadow:inset 0 0 0 1px #4a4f55}
+.station-wrap::before{content:"";position:absolute;left:0;right:0;top:66px;height:1px;background:#2f3439}
+.tabs{position:absolute;left:50%;top:98px;transform:translateX(-50%);display:flex;align-items:center;gap:0;width:900px;justify-content:space-between;font-size:18px;letter-spacing:.04em}
+.tab{padding:10px 30px;color:#cfd6dc;position:relative;white-space:nowrap}
+.tab.act{color:var(--accent-2)}
+.tab.act::before,.tab.act::after{content:"";position:absolute;top:0;bottom:0;width:10px;border:2px solid var(--accent)}
+.tab.act::before{left:0;border-right:0}.tab.act::after{right:0;border-left:0}
+.credits{position:absolute;right:80px;top:44px;border:2px solid var(--accent);color:var(--accent-2);padding:12px 24px;font-size:24px;letter-spacing:.05em;background:#1c1616}
+
+/* ---------- glyphs ---------- */
+.gp,.key{font-style:normal;display:inline-flex;align-items:center;justify-content:center;vertical-align:middle;font-weight:700;line-height:1}
+.gp{width:26px;height:26px;border-radius:50%;font-size:14px;background:#22262b;border:2px solid #555c64;color:#dfe5ea}
+.gp.a{border-color:#5ed26e;color:#5ed26e}.gp.b{border-color:#ee5f5f;color:#ee5f5f}.gp.x{border-color:#5aa2ff;color:#5aa2ff}.gp.y{border-color:#f0c24a;color:#f0c24a}
+.gp.pill{border-radius:8px;width:auto;min-width:34px;padding:0 7px;height:24px;font-size:13px}
+.gp.rs{background:#1a1d21}
+.gp svg{width:16px;height:16px}
+.key{min-width:30px;height:26px;padding:0 8px;border-radius:4px;background:#22262b;border:1px solid #59606a;border-bottom-width:3px;color:#dfe5ea;font-size:14px}
+
+/* ---------- panels ---------- */
+.panel{position:absolute;background:var(--panel);border:1px solid var(--line);}
+#left{left:40px;top:180px;width:450px;padding-bottom:16px}
+.lp-head{display:flex;align-items:stretch;height:46px;background:var(--accent);color:#fff;margin:0 0 0 0;
+  clip-path:polygon(0 0,100% 0,100% 100%,0 100%)}
+.lp-head .ic{width:56px;background:#e8e8e8;display:grid;place-items:center;color:var(--accent)}
+.lp-head .nm{flex:1;padding:0 16px;font-size:26px;font-weight:700;letter-spacing:.05em;display:flex;align-items:center}
+.lp-head .pw{display:flex;align-items:center;gap:8px;padding-right:16px;font-size:24px;font-weight:700}
+.lp-head .pw svg{width:24px;height:24px}
+.lp-head .pw .n{color:#9dff9d}.lp-head .pw .n.warn{color:#fff2a0}.lp-head .pw .n.bad{color:#ffd0d0}
+.lp-body{padding:6px 20px 0}
+.sec-title{display:flex;justify-content:space-between;align-items:baseline;font-size:17px;font-weight:700;letter-spacing:.06em;color:#dfe5ea;margin:12px 0 6px}
+.sec-title span{font-weight:600;color:var(--dim);font-size:15px}
+.slot{display:flex;align-items:center;height:42px;margin-bottom:4px;background:linear-gradient(#34373c,#2a2d31);cursor:pointer;position:relative;
+  border:1px solid transparent;transition:background .12s}
+.slot:hover{background:linear-gradient(#3d4148,#30343a)}
+.slot .ic{width:38px;height:100%;display:grid;place-items:center;color:#fff}
+.slot .ic svg{width:22px;height:22px}
+.slot.pri .ic{background:var(--pri)}.slot.sec .ic{background:#8d9297}.slot.eng .ic{background:var(--eng)}
+.slot .nm{flex:1;padding:0 12px;font-size:20px;font-weight:600;letter-spacing:.02em;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.slot .pwr{display:flex;align-items:center;gap:3px;font-size:16px;color:var(--dim);margin-right:8px}
+.slot .pwr svg{width:12px;height:12px}
+.slot .unq{width:34px;height:100%;display:grid;place-items:center;color:#c34b4b;font-size:18px;font-weight:700;border-left:1px solid #1c1e21}
+.slot .unq:hover{background:#c34b4b;color:#fff}
+.slot .unq svg{width:14px;height:14px}
+.slot .kh{margin-right:8px}
+.slot.empty{background:#0f1115;border:1px dashed #4b5158}
+.slot.empty .ic{background:#0f1115;color:#69727a;border-right:1px dashed #4b5158}
+.slot.empty .nm{color:#6b747c;font-weight:500;font-size:17px;letter-spacing:.08em;text-transform:uppercase}
+.slot.empty:hover{background:#16181c}
+.slot.sel{border-color:var(--accent);box-shadow:0 0 0 1px var(--accent)}
+.slot.sel.focus{background:linear-gradient(#55402f,#3d2f25)}
+.slot.sel.empty.focus{background:#2a1a15}
+.slot.hov{background:linear-gradient(#3d4148,#30343a)}
+.slot.pv-add .nm::after{content:" → NEW";color:var(--good);font-size:14px}
+.slot.pv-rem .nm{color:#8a4a4a;text-decoration:line-through}
+.slot.flash{animation:flash .9s ease-out}
+@keyframes flash{0%{box-shadow:0 0 0 2px var(--good);background:#2f5a3a}100%{}}
+
+/* ---------- right column ---------- */
+#right{position:absolute;left:1410px;top:180px;width:470px;height:780px;background:none;border:0;box-shadow:none;display:flex;flex-direction:column}
+.ov,.cg{background:var(--panel);border:1px solid var(--line);}
+.ov{flex:none}
+.head{height:44px;display:flex;align-items:center;justify-content:space-between;padding:0 18px;background:var(--accent);color:#fff;font-size:26px;font-weight:700;letter-spacing:.04em;
+  clip-path:polygon(0 0,100% 0,calc(100% - 14px) 100%,0 100%)}
+.head small{font-size:15px;font-weight:600;color:#ffe3d8;letter-spacing:.06em}
+.ov-body{padding:10px 20px 6px}
+.pw-row{display:flex;align-items:center;gap:16px;padding-bottom:10px;border-bottom:1px solid var(--line)}
+.pw-row .lbl{width:104px;white-space:nowrap;font-size:15px;color:var(--dim);letter-spacing:.06em;line-height:1.1}
+.pw-row .lbl b{display:block;white-space:nowrap;font-size:26px;color:var(--txt);letter-spacing:.02em;margin-top:2px}
+.pw-row .lbl b.bad{color:var(--bad)}
+.pbar{flex:1;display:flex;gap:2px;height:26px;align-items:stretch}
+.pbar i{flex:1;background:#23272c;position:relative}
+.pbar i.on{background:var(--pow)}
+.pbar i.add{background:var(--good)}
+.pbar i.over{background:var(--bad)}
+.pbar i.rem{background:repeating-linear-gradient(45deg,#4a2a2a 0 4px,#2a1a1a 4px 8px);outline:1px solid #a03a3a;outline-offset:-1px}
+.stats{display:grid;grid-template-columns:1fr 1fr;border-bottom:1px solid var(--line)}
+.st{display:flex;align-items:center;gap:14px;padding:8px 8px;position:relative}
+.st:nth-child(2n){border-left:1px solid var(--line);padding-left:22px}
+.st .si{width:34px;height:34px;color:#d6dbe0;display:grid;place-items:center}
+.st .si svg{width:32px;height:32px}
+.st .sl{font-size:14px;color:var(--dim);letter-spacing:.08em}
+.st .sv{font-size:26px;font-weight:700;line-height:1}
+.st .sd{margin-left:auto;font-size:16px;font-weight:700;padding:1px 7px;border-radius:2px}
+.up{color:var(--good)}.dn{color:var(--bad)}.wn{color:var(--warn)}.nt{color:#cfd6dc}
+.sd.up{background:#1a3324}.sd.dn{background:#351a1c}.sd.wn{background:#35291a}.sd.nt{background:#22262b}
+.sv.up{color:var(--good)}.sv.dn{color:var(--bad)}.sv.nt{color:var(--txt)}
+.wrow{display:grid;grid-template-columns:104px 1fr 1fr 1fr;align-items:center;padding:8px 0;border-top:1px solid var(--line)}
+.wrow:first-of-type{border-top:0}
+.wrow .rl{font-size:15px;color:var(--dim);letter-spacing:.06em}
+.wc{display:flex;align-items:center;gap:8px;height:34px}
+.wc svg{width:20px;height:20px;color:#b9c0c7;flex:none}
+.wc .v{font-size:24px;font-weight:700;line-height:1}
+.wc .v.zero{color:#5c646b;font-weight:600}
+.wc .d{font-size:14px;font-weight:700}
+.wc.k svg{color:#e8695c}.wc.e svg{color:#f0a04b}.wc.n svg{color:#5cb4ff}
+.wrows{padding-top:2px}
+
+.cg{margin-top:10px;flex:1;min-height:0;display:flex;flex-direction:column}
+.cg .target{padding:8px 18px 4px;font-size:15px;color:var(--dim);letter-spacing:.06em;display:flex;justify-content:space-between}
+.cg .target b{color:var(--txt);font-weight:600}
+.cats{display:flex;align-items:center;gap:6px;padding:4px 14px 8px}
+.cat{flex:1;text-align:center;font-size:15px;font-weight:700;letter-spacing:.06em;padding:7px 0;background:#1e2126;color:var(--dim);border-bottom:3px solid transparent;cursor:pointer}
+.cat i{font-style:normal;margin-left:4px;color:#69727a}
+.cat.act{color:#fff;background:#2b2f35}
+.cat.act.pri{border-color:var(--pri)}.cat.act.sec{border-color:var(--sec)}.cat.act.eng{border-color:var(--eng)}
+.cg-list{flex:1;overflow-y:auto;padding:0 14px 10px;scrollbar-width:thin;scrollbar-color:#3a3f46 transparent}
+.cg-row{display:flex;align-items:center;gap:12px;height:66px;padding:0 12px 0 0;margin-bottom:5px;background:linear-gradient(#2f3237,#282b30);cursor:pointer;border:1px solid transparent;position:relative}
+.cg-row .ic{width:46px;align-self:stretch;display:grid;place-items:center;color:#fff}
+.cg-row.pri .ic{background:var(--pri)}.cg-row.sec .ic{background:#8d9297}.cg-row.eng .ic{background:var(--eng)}
+.cg-row .ic svg{width:24px;height:24px}
+.cg-row .mid{flex:1;min-width:0}
+.cg-row .nm{font-size:20px;font-weight:700;letter-spacing:.02em;display:flex;gap:8px;align-items:baseline}
+.cg-row .nm small{font-size:15px;color:var(--dim);font-weight:600}
+.chips{display:flex;gap:12px;font-size:15px;color:#c3cad1;margin-top:3px;white-space:nowrap}
+.chip{display:inline-flex;align-items:center;gap:4px}
+.chip svg{width:12px;height:12px}
+.chip em{font-style:normal;font-weight:700;font-size:13px}
+.cg-row .act{font-size:14px;font-weight:700;letter-spacing:.1em;color:var(--accent-2);display:flex;align-items:center;gap:6px;white-space:nowrap}
+.cg-row.nopow .act{color:var(--bad)}
+.cg-row.nopow .nm{color:#c9aaaa}
+.cg-row.hov,.cg-row:hover{background:linear-gradient(#3b3f45,#30343a)}
+.cg-row.sel{border-color:var(--accent);background:linear-gradient(#55402f,#3d2f25);box-shadow:0 0 0 1px var(--accent)}
+.cg-empty{padding:40px 30px;text-align:center;color:#6b747c;font-size:18px;letter-spacing:.05em;line-height:1.5}
+
+/* ---------- ship (3D) ---------- */
+#shipbox{position:absolute;left:490px;top:168px;width:920px;height:530px;cursor:grab;background:#0c0f12;overflow:hidden}
+#shipbox:active{cursor:grabbing}
+#shipbox canvas{display:block;width:100%;height:100%;outline:0}
+.tag3d{position:absolute;left:0;top:0;transform:translate(-50%,-100%);background:#0a0c0f;border:2px solid var(--accent);padding:4px 12px 5px;text-align:center;pointer-events:none;white-space:nowrap;display:none}
+.tag3d small{display:block;font-size:13px;font-weight:600;letter-spacing:.1em;color:var(--dim)}
+.tag3d b{display:block;font-size:17px;letter-spacing:.06em;color:#fff}
+.tag3d.hv{border-color:#8b949c}
+#shiphint{position:absolute;left:0;right:0;bottom:8px;text-align:center;font-size:13px;letter-spacing:.14em;color:#59626a;pointer-events:none}
+
+/* ---------- compare card ---------- */
+#card{position:absolute;left:560px;top:700px;width:780px;min-height:262px;background:#0a0c0f;border:1px solid #2a2d31;}
+#card .ch{display:flex;align-items:center;gap:12px;height:44px;padding:0 16px;border-bottom:1px solid var(--line);font-size:20px;font-weight:700;letter-spacing:.05em}
+#card .ch .tg{font-size:14px;letter-spacing:.1em;color:#fff;padding:2px 8px;background:#555}
+#card .ch .tg.pri{background:var(--pri)}#card .ch .tg.sec{background:#8d9297}#card .ch .tg.eng{background:var(--eng)}
+#card .ch .arrow{color:var(--accent-2)}
+#card .ch .old{color:var(--dim)}
+#card table{width:100%;border-collapse:collapse;font-size:19px}
+#card th{font-size:13px;letter-spacing:.12em;color:var(--dim);font-weight:600;text-align:right;padding:8px 16px 4px}
+#card th:first-child{text-align:left}
+#card td{padding:5px 16px;text-align:right;font-weight:600;border-top:1px solid #16181b}
+#card td:first-child{text-align:left;color:#cfd6dc;font-weight:600;display:flex;align-items:center;gap:10px}
+#card td:first-child svg{width:16px;height:16px;color:#aab2ba}
+#card td.o{color:var(--dim)}
+#card td.dl{width:110px;font-weight:700}
+#card .cf{display:flex;align-items:center;justify-content:space-between;padding:10px 16px;border-top:1px solid var(--line);font-size:17px;letter-spacing:.05em;color:var(--dim);background:#121417}
+#card .cf .ok{color:var(--good);font-weight:700}
+#card .cf .no{color:var(--bad);font-weight:700}
+#card .cf b{color:var(--txt)}
+#card .emptyc{padding:20px 16px;color:#7b848c;font-size:18px;letter-spacing:.04em;line-height:1.5}
+
+/* ---------- bottom bar ---------- */
+#bottom{position:absolute;left:0;bottom:0;width:100%;height:100px;display:flex;align-items:center;justify-content:space-between;padding:26px 80px 0}
+.hints{display:flex;gap:34px;align-items:center}
+.hint{display:flex;align-items:center;gap:10px;font-size:19px;letter-spacing:.06em;color:#c9d0d6;text-transform:uppercase;position:relative;padding:6px 0;cursor:pointer}
+.hint.off{color:#4a5158;cursor:not-allowed}
+.hint .g{display:flex;gap:4px}
+.hint.hold::after{content:"";position:absolute;left:0;bottom:0;height:3px;width:calc(var(--p,0)*100%);background:var(--accent)}
+.hint .ht{font-size:12px;color:var(--dim);letter-spacing:.1em}
+.rightbar{display:flex;align-items:center;gap:26px}
+.inputpill{font-size:13px;letter-spacing:.12em;color:#7b848c;border:1px dashed #4b5158;padding:6px 12px;border-radius:14px}
+.inputpill:hover{color:#fff;border-color:#8b949c}
+.leave{position:relative;overflow:hidden;background:#c93c2c;color:#fff;padding:9px 22px;font-size:22px;letter-spacing:.06em;display:flex;align-items:center;gap:12px;font-weight:600;
+  clip-path:polygon(10px 0,100% 0,100% 100%,0 100%,0 10px)}
+.leave::before{content:"";position:absolute;inset:0;background:#e0766a;transform-origin:left;transform:scaleX(var(--p,0))}
+.leave>*{position:relative}
+.leave .key,.leave .gp{background:#8a2a20;border-color:#e08a80;color:#fff}
+
+/* ---------- toast / overlay ---------- */
+#toast{position:absolute;left:50%;top:150px;transform:translate(-50%,-10px);visibility:hidden;padding:8px 22px;font-size:20px;font-weight:700;letter-spacing:.06em;background:#0a0c0f;border:1px solid var(--good);color:var(--good);pointer-events:none;z-index:20}
+#toast.show{visibility:visible;transform:translate(-50%,0)}
+#toast.bad{border-color:var(--bad);color:var(--bad)}
+#toast.info{border-color:#8b949c;color:#dfe5ea}
+#leave-ov{position:absolute;inset:0;background:#000;display:none;place-items:center;font-size:40px;letter-spacing:.3em;color:var(--accent-2);z-index:50;cursor:pointer}
+#leave-ov.show{display:grid}
+#leave-ov small{display:block;font-size:16px;color:var(--dim);letter-spacing:.14em;text-align:center;margin-top:14px}
+</style>
+</head>
+<body>
+<div id="stage">
+  <div class="scene"></div>
+
+  <div id="top"></div>
+  <div id="toast"></div>
+
+  <div id="left" class="panel"></div>
+
+  <div id="shipbox"><div class="tag3d" id="tagSel"></div><div class="tag3d hv" id="tagHov"></div><div id="shiphint">DRAG · ROTATE &nbsp;&nbsp; SCROLL · ZOOM &nbsp;&nbsp; DROP A .GLB TO PREVIEW YOUR SHIP</div></div>
+  <div id="card"></div>
+
+  <div id="right"></div>
+
+  <div id="bottom"></div>
+  <div id="leave-ov"><div>UNDOCKING…<small>MOCKUP — CLICK TO CLOSE</small></div></div>
+</div>
+
+<script src="vendor/three.min.js"></script>
+<script src="vendor/GLTFLoader.js"></script>
+<script>
+/* =====================================================================
+   DATA
+   ===================================================================== */
+const MAX_POWER = 26;
+const BASE = { value: 1900, hull: 22000, shield: 14000 };
+
+const CATS = {
+  primary:   { key:'primary',   cls:'pri', label:'Primary Weapons',   short:'Primary',   one:'Primary' },
+  secondary: { key:'secondary', cls:'sec', label:'Secondary Weapons', short:'Secondary', one:'Secondary' },
+  engine:    { key:'engine',    cls:'eng', label:'Engines',           short:'Engines',   one:'Engine' },
+};
+const CAT_ORDER = ['primary','secondary','engine'];
+
+// kin/exp/nrg = damage types, eng = thrust
+const MODS = {
+  kb:      { id:'kb',      name:'K&B Gun',        cat:'primary',   power:2, value:380,  kin:9 },
+  scatter: { id:'scatter', name:'Ion Scatter',    cat:'primary',   power:3, value:820,  kin:4,  nrg:12 },
+  pulse:   { id:'pulse',   name:'Pulse Lance',    cat:'primary',   power:4, value:1150, nrg:22 },
+  rail:    { id:'rail',    name:'Rail Driver',    cat:'primary',   power:6, value:2300, kin:34 },
+  sho:     { id:'sho',     name:'SHO-Gun',        cat:'secondary', power:3, value:640,  exp:105 },
+  seeker:  { id:'seeker',  name:'Seeker Pod',     cat:'secondary', power:5, value:1400, exp:160 },
+  mortar:  { id:'mortar',  name:'Arc Mortar',     cat:'secondary', power:7, value:2100, exp:90, nrg:60 },
+  speeder: { id:'speeder', name:'Speeder',        cat:'engine',    power:1, value:352,  eng:41 },
+  ion:     { id:'ion',     name:'Ion Drive',      cat:'engine',    power:2, value:900,  eng:68 },
+  bulwark: { id:'bulwark', name:'Bulwark Drive',  cat:'engine',    power:2, value:760,  eng:30, hull:1500 },
+  aegis:   { id:'aegis',   name:'Aegis Thruster', cat:'engine',    power:2, value:820,  eng:35, shield:2000 },
+};
+const MOD_ORDER = Object.keys(MODS);
+
+// hardpoint slots (3D positions live in ship3d.js, or come from the model's hp_* nodes)
+const SLOTS = [
+  {id:'p0',cat:'primary',  n:1},
+  {id:'p1',cat:'primary',  n:2},
+  {id:'p2',cat:'primary',  n:3},
+  {id:'p3',cat:'primary',  n:4},
+  {id:'s0',cat:'secondary',n:1},
+  {id:'s1',cat:'secondary',n:2},
+  {id:'e0',cat:'engine',   n:1},
+  {id:'e1',cat:'engine',   n:2},
+  {id:'e2',cat:'engine',   n:3},
+  {id:'e3',cat:'engine',   n:4},
+  {id:'e4',cat:'engine',   n:5},
+];
+const slotDef = id => SLOTS.find(s=>s.id===id);
+const slotLabel = s => `${CATS[s.cat].one} ${s.n}`;
+
+const S = {
+  slots: { p0:'kb',p1:'kb',p2:'kb',p3:null, s0:'sho',s1:null, e0:'speeder',e1:'speeder',e2:'speeder',e3:'speeder',e4:null },
+  cargo: { kb:2, scatter:1, pulse:1, rail:1, seeker:1, mortar:1, ion:2, bulwark:1, aegis:1, speeder:1 },
+  sel: 'p0',
+  focus: 'slots',        // 'slots' | 'cargo'
+  cargoIdx: 0,
+  hoverCargo: null, hoverSlot: null, hoverRemove: null,
+  inputPref: 'gamepad',  // 'gamepad' | 'keyboard' | 'auto'
+  device: 'gamepad',
+  flash: null, flashT: 0, toast: null,
+  rot: { yaw:.9, pitch:.26, d:12.6 },
+};
+
+/* =====================================================================
+   HELPERS
+   ===================================================================== */
+const $ = s => document.querySelector(s);
+const fmt = n => Math.round(n).toLocaleString('en-US');
+const sgn = n => (n>0?'+':n<0?'−':'') + fmt(Math.abs(n));
+const mv = (m,k) => (m && m[k]) || 0;
+const dev = () => S.inputPref==='auto' ? S.device : S.inputPref;
+
+const I = {
+  kin:   '<path d="M2 3h12L8 14z"/>',
+  exp:   '<path d="M3 3l10 10M13 3L3 13" stroke="currentColor" stroke-width="2.2" fill="none"/>',
+  nrg:   '<path d="M9.5 1L3 9h4l-1 6 7-8.5H9z"/>',
+  eng:   '<circle cx="8" cy="8" r="6" fill="none" stroke="currentColor" stroke-width="1.6"/><circle cx="8" cy="8" r="2" /><path d="M8 2v3M8 11v3M2 8h3M11 8h3" stroke="currentColor" stroke-width="1.4"/>',
+  hull:  '<path d="M8 1l6 3.5v7L8 15l-6-3.5v-7z" fill="none" stroke="currentColor" stroke-width="1.8"/><path d="M5 6l3 2 3-2M8 8v4" stroke="currentColor" stroke-width="1.2" fill="none"/>',
+  shield:'<path d="M8 1l6 2v5c0 3-3 5-6 7-3-2-6-4-6-7V3z" fill="none" stroke="currentColor" stroke-width="1.8"/>',
+  value: '<path d="M8 1l7 7-7 7-7-7z"/>',
+  power: '<rect x="4" y="4" width="8" height="8" fill="none" stroke="currentColor" stroke-width="1.6"/><path d="M6 1v3M10 1v3M6 12v3M10 12v3M1 6h3M1 10h3M12 6h3M12 10h3" stroke="currentColor" stroke-width="1.3"/>',
+  primary:   '<path d="M8 1l3 4v9H5V5z" fill="currentColor"/><path d="M3 15h10" stroke="currentColor" stroke-width="1.5"/>',
+  secondary: '<circle cx="8" cy="8" r="3.4" fill="currentColor"/><path d="M8 1v2.6M8 12.4V15M1 8h2.6M12.4 8H15M3 3l1.8 1.8M11.2 11.2L13 13M13 3l-1.8 1.8M4.8 11.2L3 13" stroke="currentColor" stroke-width="1.6"/>',
+  engine:    '<circle cx="8" cy="8" r="6.2" fill="none" stroke="currentColor" stroke-width="1.6"/><circle cx="8" cy="8" r="1.8" fill="currentColor"/><path d="M8 2v4M8 10v4M2 8h4M10 8h4" stroke="currentColor" stroke-width="1.4"/>',
+  x:     '<path d="M3 3l10 10M13 3L3 13" stroke="currentColor" stroke-width="2.4" fill="none"/>',
+  plus:  '<path d="M8 2v12M2 8h12" stroke="currentColor" stroke-width="1.8" fill="none"/>',
+};
+const ico = (n,cls='') => `<svg class="${cls}" viewBox="0 0 16 16" fill="currentColor">${I[n]}</svg>`;
+
+const STAT_META = {
+  power:  { label:'Power cost',    icon:'power',  better:'low' },
+  kin:    { label:'Kinetic dmg',   icon:'kin',    better:'high' },
+  exp:    { label:'Explosive dmg', icon:'exp',    better:'high' },
+  nrg:    { label:'Energy dmg',    icon:'nrg',    better:'high' },
+  eng:    { label:'Engine thrust', icon:'eng',    better:'high' },
+  hull:   { label:'Hull',          icon:'hull',   better:'high' },
+  shield: { label:'Shield',        icon:'shield', better:'high' },
+  value:  { label:'Value',         icon:'value',  better:'neutral' },
+};
+// css class for a delta
+function dcls(k,d){
+  if(!d) return 'nt';
+  const b = STAT_META[k]?.better;
+  if(b==='neutral') return 'nt';
+  if(b==='low') return d>0 ? 'wn' : 'up';
+  return d>0 ? 'up' : 'dn';
+}
+
+/* ---------- loadout maths ---------- */
+function calc(slots){
+  const t = { power:0, value:BASE.value, eng:0, hull:BASE.hull, shield:BASE.shield,
+              pri:{kin:0,exp:0,nrg:0}, sec:{kin:0,exp:0,nrg:0} };
+  for(const s of SLOTS){
+    const m = MODS[slots[s.id]]; if(!m) continue;
+    t.power += m.power; t.value += m.value; t.eng += mv(m,'eng'); t.hull += mv(m,'hull'); t.shield += mv(m,'shield');
+    const tgt = s.cat==='primary' ? t.pri : s.cat==='secondary' ? t.sec : null;
+    if(tgt){ tgt.kin+=mv(m,'kin'); tgt.exp+=mv(m,'exp'); tgt.nrg+=mv(m,'nrg'); }
+  }
+  return t;
+}
+const catOfSel = () => slotDef(S.sel).cat;
+const cargoList = (cat=catOfSel()) => MOD_ORDER.filter(id=>MODS[id].cat===cat && (S.cargo[id]||0)>0).map(id=>MODS[id]);
+function preview(){
+  if(S.hoverRemove) return { slot:S.hoverRemove, to:null };
+  const list = cargoList();
+  const id = S.hoverCargo ?? (S.focus==='cargo' ? list[S.cargoIdx]?.id : null);
+  if(id) return { slot:S.sel, to:id };
+  return null;
+}
+const previewSlots = pv => ({ ...S.slots, [pv.slot]: pv.to });
+function wouldFit(slotId, modId){
+  return calc({ ...S.slots, [slotId]: modId }).power <= MAX_POWER;
+}
+
+/* =====================================================================
+   GLYPHS (gamepad / keyboard)
+   ===================================================================== */
+const dpadSvg = '<svg viewBox="0 0 16 16" fill="currentColor"><path d="M6 1h4v5h5v4h-5v5H6v-5H1V6h5z"/></svg>';
+function glyph(n){
+  if(dev()==='gamepad'){
+    switch(n){
+      case 'A': return '<i class="gp a">A</i>';
+      case 'B': return '<i class="gp b">B</i>';
+      case 'X': return '<i class="gp x">X</i>';
+      case 'Y': return '<i class="gp y">Y</i>';
+      case 'dpad': return `<i class="gp">${dpadSvg}</i>`;
+      case 'LT': return '<i class="gp pill">LT</i>';
+      case 'RT': return '<i class="gp pill">RT</i>';
+      case 'LB': return '<i class="gp pill">LB</i>';
+      case 'RB': return '<i class="gp pill">RB</i>';
+      case 'RS': return '<i class="gp rs">R</i>';
+      case 'START': return '<i class="gp pill">≡</i>';
+    }
+  }else{
+    const k = { A:'Enter', B:'Bksp', X:'Del', Y:'R', dpad:'↑ ↓', LT:'⇧ Tab', RT:'Tab', LB:'Q', RB:'E', RS:'Drag', START:'Esc' }[n];
+    return `<i class="key">${k}</i>`;
+  }
+}
+const glyphs = (...a) => `<span class="g">${a.map(glyph).join('')}</span>`;
+
+/* =====================================================================
+   RENDER
+   ===================================================================== */
+function renderTop(){
+  const segs = (n,on,c)=>Array.from({length:n},(_,i)=>`<i class="${i<on?'on '+c:''}"></i>`).join('');
+  $('#top').innerHTML = `
+    <div class="hud">
+      <div class="emblem"><svg width="44" height="44" viewBox="0 0 44 44" fill="none" stroke="#9aa3ab" stroke-width="2"><circle cx="22" cy="22" r="16"/><path d="M22 8v28M10 16l12 6 12-6M10 28l12-6 12 6"/></svg></div>
+      <div class="hud-bars">
+        <div class="hud-bar"><b>21,980</b><div class="segs">${segs(22,21,'g')}</div></div>
+        <div class="hud-bar"><b>14,000</b><div class="segs">${segs(22,22,'b')}</div></div>
+        <div class="hud-speed">0 m/s</div>
+      </div>
+      <div class="hud-lv">30</div>
+    </div>
+    <div class="station-wrap"><div class="station">MARIANAN STATION</div></div>
+    <div class="tabs">
+      ${glyph('LB')}
+      <span class="tab">MAINTENANCE</span><span class="tab">RAIDER LOG</span><span class="tab">INVENTORY</span><span class="tab">TRADING</span><span class="tab act">CRAFTING</span>
+      ${glyph('RB')}
+    </div>
+    <div class="credits">121,834 CR</div>`;
+}
+
+function renderLeft(){
+  const t = calc(S.slots), pv = preview();
+  const pt = pv ? calc(previewSlots(pv)) : t;
+  const shown = pt.power;
+  const pcls = shown>MAX_POWER ? 'bad' : shown>t.power ? 'warn' : '';
+  let html = `
+    <div class="lp-head">
+      <div class="ic"><svg width="30" height="30" viewBox="0 0 24 24" fill="currentColor"><path d="M12 2l3 7 7 3-7 3-3 7-3-7-7-3 7-3z"/></svg></div>
+      <div class="nm">ZEPHYROS</div>
+      <div class="pw"><svg viewBox="0 0 16 16" fill="currentColor">${I.power}</svg><span class="n ${pcls}">${shown}</span><span>/ ${MAX_POWER}</span></div>
+    </div>
+    <div class="lp-body">`;
+  for(const ck of CAT_ORDER){
+    const c = CATS[ck], slots = SLOTS.filter(s=>s.cat===ck);
+    const used = slots.filter(s=>S.slots[s.id]).length;
+    html += `<div class="sec-title">${c.label.toUpperCase()}<span>${used} / ${slots.length}</span></div>`;
+    for(const s of slots){
+      const m = MODS[S.slots[s.id]];
+      const isSel = S.sel===s.id;
+      const cls = ['slot',c.cls, m?'':'empty', isSel?'sel':'', isSel&&S.focus==='slots'?'focus':'', S.hoverSlot===s.id?'hov':'', S.flash===s.id?'flash':'',
+                   pv&&pv.slot===s.id ? (pv.to?'pv-add':'pv-rem') : ''].join(' ');
+      html += `<div class="${cls}" data-slot="${s.id}">
+        <div class="ic">${ico(ck)}</div>
+        <div class="nm">${m?m.name:'Empty slot'}</div>
+        ${m?`<div class="pwr">${ico('power')}${m.power}</div>`:''}
+        ${isSel&&S.focus==='slots'?`<span class="kh">${glyph('A')}</span>`:''}
+        ${m?`<button class="unq" data-unq="${s.id}" title="Unequip">${ico('x')}</button>`:''}
+      </div>`;
+    }
+  }
+  html += `</div>`;
+  $('#left').innerHTML = html;
+}
+
+function statCell(icon,label,val,delta,k,extra=''){
+  const c = dcls(k,delta);
+  return `<div class="st"><div class="si">${ico(icon)}</div><div><div class="sl">${label}</div><div class="sv ${delta?c:''}">${fmt(val)}</div></div>${delta?`<div class="sd ${c}">${sgn(delta)}</div>`:''}</div>`;
+}
+function wcell(cls,icon,val,delta){
+  const c = delta ? (delta>0?'up':'dn') : '';
+  return `<div class="wc ${cls}">${ico(icon)}<span class="v ${val?'':'zero'} ${c}">${val}</span>${delta?`<span class="d ${c}">${sgn(delta)}</span>`:''}</div>`;
+}
+
+function renderRight(){
+  const keep = $('.cg-list')?.scrollTop || 0;
+  const t = calc(S.slots), pv = preview();
+  const n = pv ? calc(previewSlots(pv)) : t;
+  const over = n.power > MAX_POWER;
+
+  // power bar
+  let bar='';
+  for(let i=0;i<MAX_POWER;i++){
+    let c='';
+    if(over){ c='over'; }
+    else if(n.power>=t.power){ c = i<t.power ? 'on' : i<n.power ? 'add' : ''; }
+    else { c = i<n.power ? 'on' : i<t.power ? 'rem' : ''; }
+    bar += `<i class="${c}"></i>`;
+  }
+  const pd = n.power - t.power;
+
+  const dEng = n.eng-t.eng, dH = n.hull-t.hull, dS = n.shield-t.shield, dV = n.value-t.value;
+  const wrow = (label,a,b)=>`<div class="wrow"><div class="rl">${label}</div>
+      ${wcell('k','kin',a.kin,b.kin-a.kin)}${wcell('e','exp',a.exp,b.exp-a.exp)}${wcell('n','nrg',a.nrg,b.nrg-a.nrg)}</div>`;
+  const wrow2 = (label,a,b)=>{
+    const f=(cls,ic,k)=>{const d=b[k]-a[k];return wcell(cls,ic,b[k],d)};
+    return `<div class="wrow"><div class="rl">${label}</div>${f('k','kin','kin')}${f('e','exp','exp')}${f('n','nrg','nrg')}</div>`;
+  };
+
+  const ov = `<div class="ov">
+    <div class="head">SPACESHIP OVERVIEW<small>${pv?'PREVIEW':'CURRENT'}</small></div>
+    <div class="ov-body">
+      <div class="pw-row">
+        <div class="lbl">POWER<b class="${over?'bad':''}">${n.power} / ${MAX_POWER}</b></div>
+        <div class="pbar">${bar}</div>
+        ${pd?`<div class="sd ${over?'dn':dcls('power',pd)}" style="font-size:16px;font-weight:700;padding:1px 7px;border-radius:2px">${sgn(pd)}</div>`:''}
+      </div>
+      <div class="stats">
+        ${statCell('value','VALUE',n.value,dV,'value')}
+        ${statCell('eng','ENGINE',n.eng,dEng,'eng')}
+        ${statCell('hull','HULL',n.hull,dH,'hull')}
+        ${statCell('shield','SHIELD',n.shield,dS,'shield')}
+      </div>
+      <div class="wrows">
+        ${wrow2('PRIMARY',t.pri,n.pri)}
+        ${wrow2('SECONDARY',t.sec,n.sec)}
+      </div>
+    </div></div>`;
+
+  // cargo
+  const cat = catOfSel(), c = CATS[cat], list = cargoList();
+  if(S.cargoIdx>=list.length) S.cargoIdx = Math.max(0,list.length-1);
+  const sd = slotDef(S.sel), curM = MODS[S.slots[S.sel]];
+  const cats = CAT_ORDER.map(k=>{
+    const cnt = MOD_ORDER.filter(id=>MODS[id].cat===k).reduce((a,id)=>a+(S.cargo[id]||0),0);
+    return `<div class="cat ${CATS[k].cls} ${k===cat?'act':''}" data-cat="${k}">${CATS[k].short.toUpperCase()}<i>${cnt}</i></div>`;
+  }).join('');
+  const rows = list.map((m,i)=>{
+    const fits = wouldFit(S.sel,m.id);
+    const focus = S.focus==='cargo' && i===S.cargoIdx;
+    const hov = S.hoverCargo===m.id;
+    const chips = ['kin','exp','nrg','eng','hull','shield'].filter(k=>mv(m,k)||mv(curM,k)&&false).map(k=>{
+      const d = curM ? mv(m,k)-mv(curM,k) : 0;
+      return `<span class="chip">${ico(STAT_META[k].icon)}${fmt(mv(m,k))}${curM&&d?` <em class="${dcls(k,d)}">${sgn(d)}</em>`:''}</span>`;
+    }).join('');
+    const pd2 = curM ? m.power-curM.power : 0;
+    const pchip = `<span class="chip">${ico('power')}${m.power}${curM&&pd2?` <em class="${dcls('power',pd2)}">${sgn(pd2)}</em>`:''}</span>`;
+    const label = !fits ? 'NO POWER' : (curM?'REPLACE':'EQUIP');
+    return `<div class="cg-row ${c.cls} ${focus?'sel':''} ${hov?'hov':''} ${fits?'':'nopow'}" data-mod="${m.id}" data-i="${i}">
+      <div class="ic">${ico(cat)}</div>
+      <div class="mid"><div class="nm">${m.name}<small>×${S.cargo[m.id]}</small></div><div class="chips">${chips}${pchip}</div></div>
+      <div class="act">${focus||hov?label:''}${focus?glyph('A'):''}</div>
+    </div>`;
+  }).join('') || `<div class="cg-empty">NO ${c.short.toUpperCase()} MODULES IN CARGO<br><span style="font-size:15px">Craft or loot new modules to fill your hold</span></div>`;
+
+  const cg = `<div class="cg">
+    <div class="head">CARGO<small>${MOD_ORDER.reduce((a,id)=>a+(S.cargo[id]||0),0)} MODULES</small></div>
+    <div class="target"><span>TARGET SLOT · <b>${slotLabel(sd).toUpperCase()}</b></span><span>${curM?curM.name.toUpperCase():'EMPTY'}</span></div>
+    <div class="cats">${glyph('LT')}${cats}${glyph('RT')}</div>
+    <div class="cg-list">${rows}</div>
+  </div>`;
+
+  $('#right').innerHTML = ov + cg;
+  const l = $('.cg-list'); if(l) l.scrollTop = keep;
+}
+
+/* ---------- compare card ---------- */
+function renderCard(){
+  const sd = slotDef(S.sel), c = CATS[sd.cat], curM = MODS[S.slots[S.sel]], pv = preview();
+  const head = (title) => `<div class="ch"><span class="tg ${c.cls}">${slotLabel(sd).toUpperCase()}</span>${title}</div>`;
+  const KEYS = ['power','kin','exp','nrg','eng','hull','shield','value'];
+  let html;
+  if(!pv){
+    if(!curM){
+      const n = cargoList().length;
+      html = head('EMPTY SLOT') + `<div class="emptyc">This hardpoint is free.<br>${n?`Choose one of the <b style="color:#fff">${n}</b> compatible ${c.short.toLowerCase()} module${n>1?'s':''} in your cargo — ${glyph('A')} — to compare it with your current build.`:'No compatible modules in cargo.'}</div>`;
+    }else{
+      const rows = KEYS.filter(k=>mv(curM,k)).map(k=>`<tr><td>${ico(STAT_META[k].icon)}${STAT_META[k].label}</td><td>${fmt(mv(curM,k))}</td></tr>`).join('');
+      html = head(curM.name.toUpperCase()) + `<table><tr><th>STAT</th><th>INSTALLED</th></tr>${rows}</table>
+        <div class="cf"><span>Select a cargo module to compare it against <b>${curM.name}</b></span><span>${glyph('A')}</span></div>`;
+    }
+  }else{
+    const to = MODS[pv.to];
+    const keys = KEYS.filter(k=>mv(curM,k)||mv(to,k));
+    const rows = keys.map(k=>{
+      const o = mv(curM,k), nn = mv(to,k), d = nn-o;
+      return `<tr><td>${ico(STAT_META[k].icon)}${STAT_META[k].label}</td><td class="o">${curM?fmt(o):'—'}</td><td>${to?fmt(nn):'—'}</td><td class="dl ${d?dcls(k,d):'nt'}">${d?sgn(d):'='}</td></tr>`;
+    }).join('');
+    const t0 = calc(S.slots), t1 = calc(previewSlots(pv));
+    const over = t1.power - MAX_POWER;
+    const title = to
+      ? `<span class="old">${curM?curM.name.toUpperCase():'EMPTY'}</span><span class="arrow">➜</span>${to.name.toUpperCase()}`
+      : `REMOVE <span class="old">${curM.name.toUpperCase()}</span>`;
+    const foot = over>0
+      ? `<span>POWER <b>${t0.power}</b> ➜ <b class="no">${t1.power} / ${MAX_POWER}</b></span><span class="no">NOT ENOUGH POWER (${over} OVER)</span>`
+      : `<span>POWER <b>${t0.power}</b> ➜ <b>${t1.power} / ${MAX_POWER}</b></span><span class="ok">${to?(curM?'READY TO REPLACE':'READY TO EQUIP'):'MODULE GOES BACK TO CARGO'}</span>`;
+    html = head(title) + `<table><tr><th>STAT</th><th>${curM?'INSTALLED':''}</th><th>${to?'NEW':''}</th><th>Δ</th></tr>${rows}</table><div class="cf">${foot}</div>`;
+  }
+  $('#card').innerHTML = html;
+}
+
+/* ---------- bottom bar ---------- */
+function renderBottom(){
+  const d = dev(), sd = slotDef(S.sel), curM = MODS[S.slots[S.sel]];
+  const list = cargoList(), cm = list[S.cargoIdx];
+  const fits = cm ? wouldFit(S.sel, cm.id) : true;
+  const H = (g,label,attrs='',cls='')=>`<div class="hint ${cls}" ${attrs}>${g}<span>${label}</span></div>`;
+  let left = '';
+  if(S.focus==='slots'){
+    left += H(glyph('dpad'),'Select slot','data-act="none"');
+    left += H(glyph('A'), curM?'Replace':'Choose module','data-act="a"');
+    left += H(glyph('X'),'Unequip','data-act="x"', curM?'':'off');
+  }else{
+    left += H(glyph('dpad'),'Compare','data-act="none"');
+    left += H(glyph('A'), !cm ? 'Equip' : !fits ? 'Not enough power' : curM?'Replace':'Equip','data-act="a"', (!cm||!fits)?'off':'');
+    left += H(glyph('B'),'Back','data-act="b"');
+  }
+  left += H(glyph('LT')+glyph('RT'),'Category','data-act="cat"');
+  left += H(glyph('Y'),'Remove all modules','id="hAll" data-hold="all"','hold');
+  left += H(glyph('RS'), d==='gamepad'?'Rotate':'Rotate / zoom','data-act="none"');
+  const pref = { gamepad:'GAMEPAD', keyboard:'KEYBOARD', auto:'AUTO' }[S.inputPref];
+  $('#bottom').innerHTML = `<div class="hints">${left}</div>
+    <div class="rightbar">
+      <button class="inputpill" id="pill" title="Mockup only: switch the input hints">INPUT · ${pref}</button>
+      <div class="leave" id="hLeave" data-hold="leave">${glyph('START')}<span>HOLD TO LEAVE</span></div>
+    </div>`;
+}
+
+function renderAll(){ renderLeft(); renderRight(); renderShip(); renderCard(); renderBottom(); }
+
+/* =====================================================================
+   ACTIONS
+   ===================================================================== */
+let toastT;
+function toast(msg,kind=''){
+  const el = $('#toast'); el.textContent = msg; el.className = 'show '+kind;
+  clearTimeout(toastT); toastT = setTimeout(()=>el.classList.remove('show'),1600);
+}
+function flash(slotId){ S.flash = slotId; S.flashT = performance.now(); renderAll(); setTimeout(()=>{ if(S.flash===slotId){ S.flash=null; renderLeft(); renderShip(); } },900); }
+
+function selectSlot(id){ S.sel = id; S.cargoIdx = 0; S.hoverCargo = null; }
+function moveSel(dir){
+  S.hoverCargo = S.hoverRemove = null;
+  if(S.focus==='slots'){
+    const i = SLOTS.findIndex(s=>s.id===S.sel), j = Math.max(0,Math.min(SLOTS.length-1,i+dir));
+    if(j!==i) selectSlot(SLOTS[j].id);
+  }else{
+    const n = cargoList().length; if(!n) return;
+    S.cargoIdx = Math.max(0,Math.min(n-1,S.cargoIdx+dir));
+  }
+  renderAll();
+  if(S.focus==='cargo') $('.cg-row.sel')?.scrollIntoView({block:'nearest'});
+}
+function cycleCat(dir){
+  const i = CAT_ORDER.indexOf(catOfSel()), k = CAT_ORDER[(i+dir+CAT_ORDER.length)%CAT_ORDER.length];
+  const first = SLOTS.find(s=>s.cat===k && !S.slots[s.id]) || SLOTS.find(s=>s.cat===k);
+  S.hoverCargo = null; selectSlot(first.id); renderAll();
+}
+function equip(modId, slotId=S.sel){
+  const m = MODS[modId], prev = S.slots[slotId];
+  if(!m || !(S.cargo[modId]>0)) return;
+  if(!wouldFit(slotId, modId)){ toast('NOT ENOUGH POWER','bad'); return; }
+  S.slots[slotId] = modId; S.cargo[modId]--;
+  if(prev) S.cargo[prev] = (S.cargo[prev]||0)+1;
+  S.focus = 'slots'; S.hoverCargo = null; S.cargoIdx = 0;
+  toast(prev ? `${m.name.toUpperCase()} REPLACED ${MODS[prev].name.toUpperCase()}` : `${m.name.toUpperCase()} EQUIPPED`);
+  flash(slotId);
+}
+function unequip(slotId=S.sel){
+  const id = S.slots[slotId]; S.hoverRemove = null;
+  if(!id){ toast('SLOT ALREADY EMPTY','info'); renderAll(); return; }
+  S.slots[slotId] = null; S.cargo[id] = (S.cargo[id]||0)+1;
+  toast(`${MODS[id].name.toUpperCase()} MOVED TO CARGO`,'info');
+  flash(slotId);
+}
+function removeAll(){
+  let n=0; for(const s of SLOTS){ const id=S.slots[s.id]; if(id){ S.cargo[id]=(S.cargo[id]||0)+1; S.slots[s.id]=null; n++; } }
+  S.focus='slots'; toast(n?`${n} MODULES MOVED TO CARGO`:'NOTHING TO REMOVE','info'); renderAll();
+}
+function act(name){
+  S.hoverCargo = S.hoverRemove = null;
+  switch(name){
+    case 'up': moveSel(-1); break;
+    case 'down': moveSel(1); break;
+    case 'a':
+      if(S.focus==='slots'){
+        if(!cargoList().length){ toast('NO COMPATIBLE MODULES IN CARGO','info'); return; }
+        S.focus='cargo'; S.cargoIdx=0; renderAll();
+      } else { const m = cargoList()[S.cargoIdx]; if(m) equip(m.id); }
+      break;
+    case 'b': case 'left': if(S.focus==='cargo'){ S.focus='slots'; renderAll(); } break;
+    case 'x': unequip(S.sel); break;
+    case 'catNext': cycleCat(1); break;
+    case 'catPrev': cycleCat(-1); break;
+  }
+}
+
+/* ---------- hold-to-confirm (leave / remove all) ---------- */
+const HOLD_MS = 900, holds = {};
+const holdEls = { leave:'#hLeave', all:'#hAll' };
+function holdStart(id){
+  if(holds[id]) return;
+  holds[id] = { t0: performance.now(), done:false };
+  (function tick(){
+    const h = holds[id]; if(!h) return;
+    const p = Math.min(1,(performance.now()-h.t0)/HOLD_MS);
+    const el = $(holdEls[id]); if(el) el.style.setProperty('--p',p);
+    if(p>=1 && !h.done){ h.done = true; holdDone(id); }
+    if(!h.done) requestAnimationFrame(tick);
+  })();
+}
+function holdEnd(id){
+  if(!holds[id]) return; delete holds[id];
+  const el = $(holdEls[id]); if(el) el.style.setProperty('--p',0);
+}
+function holdDone(id){
+  const el = $(holdEls[id]); if(el) el.style.setProperty('--p',0);
+  if(id==='all') removeAll();
+  if(id==='leave') $('#leave-ov').classList.add('show');
+  setTimeout(()=>delete holds[id],250);
+}
+
+/* =====================================================================
+   INPUT — mouse
+   ===================================================================== */
+const stage = $('#stage');
+stage.addEventListener('pointermove',e=>{
+  const row = e.target.closest?.('.cg-row'), sl = e.target.closest?.('[data-slot]'), un = e.target.closest?.('[data-unq]');
+  const hc = row?.dataset.mod || null, hr = un?.dataset.unq || null;
+  let hs = sl?.dataset.slot || null;
+  if(!drag && e.target.closest?.('#shipbox')){ hs = pickSlot(e); setShipCursor(hs?'pointer':''); }
+  if(hc!==S.hoverCargo || hs!==S.hoverSlot || hr!==S.hoverRemove){
+    S.hoverCargo=hc; S.hoverSlot=hs; S.hoverRemove=hr; renderAll();
+  }
+});
+stage.addEventListener('pointerleave',()=>{ S.hoverCargo=S.hoverSlot=S.hoverRemove=null; renderAll(); });
+stage.addEventListener('click',e=>{
+  if(dragMoved) return;
+  const t = e.target;
+  if(t.closest('#leave-ov')){ $('#leave-ov').classList.remove('show'); return; }
+  if(t.closest('#pill')){ S.inputPref = { gamepad:'keyboard', keyboard:'auto', auto:'gamepad' }[S.inputPref]; renderTop(); renderAll(); return; }
+  const un = t.closest('[data-unq]'); if(un){ unequip(un.dataset.unq); return; }
+  if(t.closest('#shipbox')){ const id = pickSlot(e); if(id){ selectSlot(id); S.focus='slots'; renderAll(); } return; }
+  const sl = t.closest('[data-slot]'); if(sl){ selectSlot(sl.dataset.slot); S.focus='slots'; renderAll(); return; }
+  const row = t.closest('.cg-row'); if(row){ S.focus='cargo'; S.cargoIdx=+row.dataset.i; equip(row.dataset.mod); return; }
+  const cat = t.closest('[data-cat]'); if(cat){ const k=cat.dataset.cat; if(k!==catOfSel()){ const f=SLOTS.find(s=>s.cat===k&&!S.slots[s.id])||SLOTS.find(s=>s.cat===k); selectSlot(f.id); } renderAll(); return; }
+  const h = t.closest('[data-act]'); if(h && h.dataset.act!=='none' && !h.classList.contains('off')){
+    if(h.dataset.act==='cat') cycleCat(1); else act(h.dataset.act);
+  }
+});
+stage.addEventListener('pointerdown',e=>{
+  const h = e.target.closest('[data-hold]'); if(h) holdStart(h.dataset.hold);
+});
+addEventListener('pointerup',()=>{ holdEnd('all'); holdEnd('leave'); });
+
+/* ship: drag = orbit, wheel = zoom, dblclick = reset */
+let drag=null, dragMoved=false;
+const ROT0 = { yaw:.9, pitch:.26, d:12.6 };
+$('#shipbox').addEventListener('pointerdown',e=>{ drag={x:e.clientX,y:e.clientY,yaw:S.rot.yaw,pitch:S.rot.pitch}; dragMoved=false; });
+addEventListener('pointermove',e=>{
+  if(!drag) return;
+  const dx=e.clientX-drag.x, dy=e.clientY-drag.y;
+  if(Math.abs(dx)+Math.abs(dy)>5) dragMoved=true;
+  if(dragMoved){ S.rot.yaw=drag.yaw-dx*.006; S.rot.pitch=Math.max(-.25,Math.min(1.1,drag.pitch+dy*.005)); }
+});
+addEventListener('pointerup',()=>{ drag=null; setTimeout(()=>dragMoved=false,0); });
+$('#shipbox').addEventListener('wheel',e=>{ e.preventDefault(); S.rot.d=Math.max(8,Math.min(24,S.rot.d+e.deltaY*.01)); },{passive:false});
+$('#shipbox').addEventListener('dblclick',()=>{ Object.assign(S.rot,ROT0); });
+
+/* =====================================================================
+   INPUT — keyboard
+   ===================================================================== */
+addEventListener('keydown',e=>{
+  if(e.repeat && !['ArrowUp','ArrowDown','w','s'].includes(e.key)) return;
+  if(S.inputPref==='auto' && S.device!=='keyboard'){ S.device='keyboard'; renderTop(); renderBottom(); }
+  const k = e.key;
+  const map = { ArrowUp:'up', w:'up', ArrowDown:'down', s:'down', Enter:'a', ' ':'a', Backspace:'b', ArrowLeft:'left',
+                Delete:'x', x:'x', Tab: e.shiftKey?'catPrev':'catNext' };
+  if(map[k]){ e.preventDefault(); act(map[k]); return; }
+  if(k==='r'||k==='R'){ holdStart('all'); }
+  if(k==='Escape'){ e.preventDefault(); if($('#leave-ov').classList.contains('show')) $('#leave-ov').classList.remove('show'); else holdStart('leave'); }
+});
+addEventListener('keyup',e=>{
+  if(e.key==='r'||e.key==='R') holdEnd('all');
+  if(e.key==='Escape') holdEnd('leave');
+});
+
+/* =====================================================================
+   INPUT — gamepad (standard mapping)
+   ===================================================================== */
+const gpPrev = {}; let gpRepeat = {};
+function pollPad(){
+  const pad = [...(navigator.getGamepads?.()||[])].find(Boolean);
+  if(pad){
+    const b = i => !!pad.buttons[i]?.pressed;
+    const now = performance.now();
+    const cur = { up:b(12)||pad.axes[1]<-.6, down:b(13)||pad.axes[1]>.6, left:b(14), a:b(0), b:b(1), x:b(2), y:b(3), lt:b(6), rt:b(7), lb:b(4), rb:b(5), start:b(9) };
+    let any = Object.values(cur).some(Boolean);
+    for(const k of Object.keys(cur)){
+      const edge = cur[k] && !gpPrev[k];
+      if(edge){
+        gpRepeat[k] = now+380;
+        if(S.inputPref==='auto' && S.device!=='gamepad'){ S.device='gamepad'; renderTop(); renderBottom(); }
+        ({ up:()=>act('up'), down:()=>act('down'), left:()=>act('left'), a:()=>act('a'), b:()=>act('b'), x:()=>act('x'),
+           lt:()=>act('catPrev'), rt:()=>act('catNext'), y:()=>holdStart('all'), start:()=>holdStart('leave') })[k]?.();
+      }else if(cur[k] && (k==='up'||k==='down') && now>gpRepeat[k]){ gpRepeat[k]=now+90; act(k); }
+      if(!cur[k] && gpPrev[k]){ if(k==='y') holdEnd('all'); if(k==='start') holdEnd('leave'); }
+      gpPrev[k]=cur[k];
+    }
+    const rx = pad.axes[2]||0, ry = pad.axes[3]||0;
+    if(Math.abs(rx)>.2||Math.abs(ry)>.2){
+      S.rot.yaw-=rx*.05; S.rot.pitch=Math.max(-.25,Math.min(1.1,S.rot.pitch+ry*.04));
+    }
+  }
+  requestAnimationFrame(pollPad);
+}
+addEventListener('gamepadconnected',()=>toast('GAMEPAD CONNECTED','info'));
+
+/* =====================================================================
+   BOOT
+   ===================================================================== */
+function fit(){ const s=Math.min(innerWidth/1920,innerHeight/1080); S.scale=s; stage.style.transform=`translate(-50%,-50%) scale(${s})`; window.resizeShip?.(); }
+addEventListener('resize',fit); fit();
+</script>
+<script src="ship3d.js"></script>
+<script>
+renderTop(); initShip(); renderAll(); requestAnimationFrame(pollPad);
+</script>
+</body>
+</html>
