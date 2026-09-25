@@ -22,7 +22,7 @@ const TARGET = new THREE.Vector3(0, .5, -.3);
 const PYL_R = { 1:.07, 2:.11, 3:.17 };       // strut radius by socket size
 const MOD_SCALE = { 1:.55, 2:.85, 3:1.3 };   // module size by socket size
 const SPR_SIZE = { 1:.55, 2:.8, 3:1.1 };     // socket marker size
-const MOD_COL = 0x8f98a3;                     // one metal for every module: the type is told by the shape
+const KIND_COL = { primary:0xe2685b, secondary:0xd8b25a, engine:0x3d8ff0 };   // red / yellow / blue by module type
 const OUTLINE = { sel:0xf4623a, hov:0xe9edf0 };
 const MOD_R = { 1:.3, 2:.45, 3:.7 };          // rough module radius, to place the size badge beside it
 
@@ -93,7 +93,7 @@ function buildHull(body){
 /* ---------- modules ---------- */
 function buildModule(kind, size, style){
   const g = new THREE.Group();
-  const tint = style==='good' ? 0x2f9e4d : style==='bad' ? 0xc23a3a : style==='rem' ? 0x5a3030 : MOD_COL;
+  const tint = style==='good' ? 0x2f9e4d : style==='bad' ? 0xc23a3a : style==='rem' ? 0x5a3030 : KIND_COL[kind];
   const lit = style!=='normal';
   const m = stdMat(tint,.4,.4, lit ? { emissive:tint, emissiveIntensity:.45 } : {});
   const dark = stdMat(0x1b1f24,.4,.5);
