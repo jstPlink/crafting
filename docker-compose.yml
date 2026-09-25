@@ -7,5 +7,5 @@ services:
     container_name: crafting
     restart: unless-stopped
     ports:
-      # host port : container port  (change 8080 if it is taken on the NAS)
-      - "${CRAFTING_PORT:-8080}:80"
+      # host port : container port  (change 6480 if it is taken on the NAS)
+      - "${CRAFTING_PORT:-6480}:80"
